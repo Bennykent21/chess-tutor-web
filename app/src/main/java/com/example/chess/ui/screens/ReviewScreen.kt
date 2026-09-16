@@ -1760,11 +1760,8 @@ fun ReviewScreen(
                   if (soundEnabled) {
                     soundEffects.playVictory()
                   }
-                  coroutineScope.launch {
-                    withContext(Dispatchers.IO) {
-                      val nextStage = (record.repetitionStage + 1).coerceAtMost(4)
-                      dao.updateMistake(record.copy(repetitionStage = nextStage, timesSolvedSuccessfully = record.timesSolvedSuccessfully + 1))
-                    }
+                  coroutineScope.launch(Dispatchers.IO) {
+                    mistakeReviewService.recordResult(record.id, solved = true)
                   }
                 },
                 modifier = Modifier.height(40.dp),
