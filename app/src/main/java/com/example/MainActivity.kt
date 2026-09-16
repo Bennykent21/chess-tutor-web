@@ -3,35 +3,28 @@ package com.example
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import com.example.chess.coaching.CurriculumRepository
-import com.example.chess.core.Move
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.chess.core.Position
 import com.example.chess.data.ChessDatabaseProvider
 import com.example.chess.data.UserProgress
 import com.example.chess.engine.TrainingLevel
+import com.example.chess.openings.RepertoireRepository
 import com.example.chess.ui.components.FenPgnImportDialog
 import com.example.chess.ui.components.ImportMode
 import com.example.chess.ui.components.LiquidGlassCanvas
@@ -42,60 +35,64 @@ import com.example.chess.ui.screens.AssessmentScreen
 import com.example.chess.ui.screens.CoachHomeScreen
 import com.example.chess.ui.screens.CurriculumScreen
 import com.example.chess.ui.screens.RepertoireScreen
-import com.example.chess.ui.screens.StudyBoardScreen
 import com.example.chess.ui.screens.ReviewScreen
+import com.example.chess.ui.screens.StudyBoardScreen
 import com.example.chess.ui.screens.TacticsDojoScreen
-import com.example.chess.ui.theme.CanvasBackground
+import com.example.chess.ui.theme.ChessTutorTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-enum class MainNavigationDestination {
+class MainActivity : ComponentActivity() {
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    setContent {
+      ChessTutorTheme {
+        ChessTutorApp()
+      }
+    }
+  }
+}
+
+private enum class MainNavigationDestination {
   TABS,
   PLACEMENT_ASSESSMENT,
   TACTICS_DOJO
 }
 
-class MainActivity : ComponentActivity() {
-
-  override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-    enableEdgeToEdge()
-
-    setContent {
-      ChessTutorApp()
-    }
-  }
-}
-
-@Composable
-fun ChessTutorApp() {
-  val context = LocalContext.current
+@androidx.compose.runtime.Composable
+private fun ChessTutorApp() {
+  val context = androidx.compose.ui.platform.LocalContext.current
+  val database = remember { ChessDatabaseProvider.getDatabase(context) }
+  val dao = database.chessDao()
   val coroutineScope = rememberCoroutineScope()
   val snackbarHostState = remember { SnackbarHostState() }
-
-  val dao = remember { ChessDatabaseProvider.getDatabase(context).chessDao() }
-  val activeMistakesFlow = remember { dao.getActiveMistakes() }
-  val dueMistakes by activeMistakesFlow.collectAsState(initial = emptyList())
-  val dueReviewCount by dao.observeDueMistakeCount(System.currentTimeMillis()).collectAsState(initial = 0)
-
-  val userProgressFlow = remember { dao.getUserProgressFlow() }
-  val userProgress by userProgressFlow.collectAsState(initial = null)
-  val userRating = userProgress?.estimatedRating ?: 1200
 
   var currentDestination by remember { mutableStateOf(MainNavigationDestination.TABS) }
   var currentTab by remember { mutableStateOf(ChessAppTab.COACH) }
   var arenaStartingFen by remember { mutableStateOf(Position.STARTING_FEN) }
   var arenaSelectedLevel by remember { mutableStateOf(TrainingLevel.INTERMEDIATE_1200) }
   var showImportModal by remember { mutableStateOf(false) }
-  var studyLineId by remember { mutableStateOf<String?>(null) }
+  var studyLineId by remember { mutableStateOf<Long?>(null) }
 
-  val activeCurriculumLesson = remember { CurriculumRepository.allLessons.first() }
+  val userProgress by dao.observeUserProgress().collectAsStateWithLifecycle(initialValue = null)
+  val dueMistakes by dao.getDueMistakes(System.currentTimeMillis()).collectAsStateWithLifecycle(initialValue = emptyList())
+  val dueReviewCount by dao.observeDueMistakeCount(System.currentTimeMillis()).collectAsStateWithLifecycle(initialValue = 0)
+
+  LaunchedEffect(Unit) {
+    RepertoireRepository.initialize()
+  }
 
   Scaffold(
     snackbarHost = { SnackbarHost(snackbarHostState) },
-    containerColor = CanvasBackground,
-    contentColor = Color.White
+    bottomBar = {
+      if (currentDestination == MainNavigationDestination.TABS && studyLineId == null) {
+        ChessBottomNavigationBar(
+          currentTab = currentTab,
+          onTabSelected = { currentTab = it }
+        )
+      }
+    }
   ) { paddingValues ->
     LiquidGlassCanvas(
       modifier = Modifier
@@ -120,7 +117,7 @@ fun ChessTutorApp() {
               snackbarHostState.showSnackbar("Imported ${rep.name} into Repertoire Vault!")
             }
           },
-          onLoadPgnForReview = { pgn ->
+          onLoadPgnForReview = { _, _ ->
             currentTab = ChessAppTab.REVIEW
             coroutineScope.launch {
               snackbarHostState.showSnackbar("Game loaded for review.")
@@ -138,7 +135,6 @@ fun ChessTutorApp() {
                   (userProgress ?: UserProgress()).copy(estimatedRating = calculatedRating)
                 )
               }
-              // Map calculated ELO to nearest bot sparring tier
               arenaSelectedLevel = when {
                 calculatedRating < 1000 -> TrainingLevel.BEGINNER_800
                 calculatedRating < 1200 -> TrainingLevel.CASUAL_1000
@@ -208,16 +204,17 @@ fun ChessTutorApp() {
         AnimatedContent(
           targetState = currentTab,
           transitionSpec = { fadeIn() togetherWith fadeOut() },
-          label = "tab_content_transition"
+          label = "tab_content_transition",
+          modifier = Modifier.padding(paddingValues)
         ) { tab ->
           when (tab) {
             ChessAppTab.COACH -> CoachHomeScreen(
-              userEstimatedRating = userRating,
+              userEstimatedRating = userProgress?.estimatedRating ?: 1100,
               userTacticsRating = userProgress?.tacticsRating ?: 1100,
               puzzlesSolvedCount = userProgress?.puzzlesSolved ?: 0,
               dueMistakes = dueMistakes,
               dueReviewCount = dueReviewCount,
-              activeLesson = activeCurriculumLesson,
+              activeLesson = null,
               onStartPlacementAssessment = {
                 currentDestination = MainNavigationDestination.PLACEMENT_ASSESSMENT
               },
@@ -229,7 +226,7 @@ fun ChessTutorApp() {
                 coroutineScope.launch {
                   snackbarHostState.showSnackbar(
                     if (dueMistakes.isEmpty()) "No positions are due for review"
-                    else "Loaded " + dueMistakes.size + " spaced-repetition positions"
+                    else "Loaded ${dueMistakes.size} spaced-repetition positions"
                   )
                 }
               },
@@ -305,7 +302,7 @@ fun ChessTutorApp() {
             ChessAppTab.ARENA -> ArenaScreen(
               initialFen = arenaStartingFen,
               selectedLevel = arenaSelectedLevel,
-              onGameFinished = { finalPos, moves ->
+              onGameFinished = { _, _ ->
                 currentTab = ChessAppTab.REVIEW
                 coroutineScope.launch {
                   snackbarHostState.showSnackbar("Match completed! Debrief loaded.")
@@ -331,12 +328,6 @@ fun ChessTutorApp() {
             )
           }
         }
-
-        ChessBottomNavigationBar(
-          currentTab = currentTab,
-          onTabSelected = { newTab -> currentTab = newTab },
-          modifier = Modifier.align(Alignment.BottomCenter)
-        )
       }
     }
   }
