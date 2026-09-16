@@ -19,7 +19,7 @@ fun FenPgnImportDialog(
     onDismiss = onDismiss,
     onPlayFenInArena = onPlayFenInArena,
     onAddTacticsPuzzle = onAddTacticsPuzzle,
-    onLoadPgnForReview = onLoadPgnForReview?.let { callback -> { pgn, _ -> callback(pgn) } },
+    onLoadPgnForReview = onLoadPgnForReview?.let { callback -> { pgn: String, _: String -> callback(pgn) } },
     onImportToRepertoire = onImportToRepertoire
   )
 }
