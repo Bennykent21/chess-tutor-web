@@ -1098,7 +1098,7 @@ fun FenPgnImportDialog(
                           onClick = {
                             val gamePgn = game.pgn.orEmpty()
                             if (gamePgn.isNotBlank()) {
-                              onLoadPgnForReview?.invoke(gamePgn)
+                              onLoadPgnForReview?.invoke(gamePgn, "Both")
                               onDismiss()
                             }
                           },
