@@ -43,7 +43,30 @@ data class ChessComGameItem(
   @Json(name = "white") val white: ChessComPlayer? = null,
   @Json(name = "black") val black: ChessComPlayer? = null,
   @Json(name = "fen") val fen: String? = null
-)
+) {
+  /** Compatibility constructor for the older import-dialog model shape. */
+  data class Player(
+    val username: String,
+    val rating: Int,
+    val result: String
+  )
+
+  constructor(
+    url: String,
+    pgn: String,
+    time_class: String,
+    end_time: Long,
+    white: Player?,
+    black: Player?
+  ) : this(
+    url = url,
+    pgn = pgn,
+    timeClass = time_class,
+    endTime = end_time,
+    white = white?.let { ChessComPlayer(it.username, it.rating, it.result) },
+    black = black?.let { ChessComPlayer(it.username, it.rating, it.result) }
+  )
+}
 
 interface ChessComApiService {
   @Headers("User-Agent: ChessMasterCoachApp/1.0 (contact: user@chesscoach.app)")
