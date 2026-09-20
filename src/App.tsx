@@ -3,14 +3,14 @@ import { Chess, Square } from "chess.js";
 import {
   ArrowLeftRight, BookOpen, Brain, ChevronRight, CircleHelp, Crosshair,
   Gauge, History, Lightbulb, Menu, Play, RotateCcw, Settings, Swords,
-  Target, TrackChanges, Trophy, X
+  Target, Trophy, X
 } from "lucide-react";
 import { openingCourses, puzzleThemes, pastGames } from "./data/content";
 
 type Tab = "train" | "learn" | "play" | "review";
 
 const tabs = [
-  { id: "train" as const, label: "Train", icon: TrackChanges },
+  { id: "train" as const, label: "Train", icon: Target },
   { id: "learn" as const, label: "Learn", icon: BookOpen },
   { id: "play" as const, label: "Play", icon: Swords },
   { id: "review" as const, label: "Review", icon: History }
