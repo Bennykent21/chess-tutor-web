@@ -14,19 +14,15 @@ import {
   Play,
   RotateCcw,
   Settings,
+  Sparkles,
   Swords,
   Target,
   Trophy,
   X
 } from "lucide-react";
+import { openingCourses, openingWinRates, pastGames, puzzleThemes, ratingHistory } from "./data/content";
 
 type Tab = "openings" | "puzzles" | "games" | "stats";
-type CoachState = {
-  title: string;
-  subtitle: string;
-  issue: string;
-  bestMove: string;
-};
 
 const tabs: Array<{ id: Tab; label: string; icon: typeof BookOpen }> = [
   { id: "openings", label: "Openings", icon: BookOpen },
@@ -35,21 +31,17 @@ const tabs: Array<{ id: Tab; label: string; icon: typeof BookOpen }> = [
   { id: "stats", label: "Stats", icon: BarChart3 }
 ];
 
-const pieceGlyphs: Record<string, string> = {
-  p: "♟", n: "♞", b: "♝", r: "♜", q: "♛", k: "♚",
-  P: "♙", N: "♘", B: "♗", R: "♖", Q: "♕", K: "♔"
+const glyph: Record<string, string> = {
+  wp: "♙", wn: "♘", wb: "♗", wr: "♖", wq: "♕", wk: "♔",
+  bp: "♟", bn: "♞", bb: "♝", br: "♜", bq: "♛", bk: "♚"
 };
 
-const squareNames: Square[] = [
-  "a8","b8","c8","d8","e8","f8","g8","h8",
-  "a7","b7","c7","d7","e7","f7","g7","h7",
-  "a6","b6","c6","d6","e6","f6","g6","h6",
-  "a5","b5","c5","d5","e5","f5","g5","h5",
-  "a4","b4","c4","d4","e4","f4","g4","h4",
-  "a3","b3","c3","d3","e3","f3","g3","h3",
-  "a2","b2","c2","d2","e2","f2","g2","h2",
-  "a1","b1","c1","d1","e1","f1","g1","h1"
-];
+const files = ["a","b","c","d","e","f","g","h"];
+const ranks = [8,7,6,5,4,3,2,1];
+
+function glyphFor(type: string, color: "w" | "b") {
+  return glyph[color + type];
+}
 
 function App() {
   const [tab, setTab] = useState<Tab>("games");
@@ -57,25 +49,14 @@ function App() {
   const [boardFlipped, setBoardFlipped] = useState(false);
   const [chess, setChess] = useState(() => new Chess());
   const [selected, setSelected] = useState<Square | null>(null);
-  const [coachState, setCoachState] = useState<CoachState>({
-    title: "Forced mate & consequence retry",
-    subtitle: "Every mistake is backed by a concrete, checkable fact.",
-    issue: "You missed mate in one",
-    bestMove: "Qh7+"
-  });
+  const [coachMessage, setCoachMessage] = useState("Start with checks, captures and threats. Explain the move before you trust it.");
 
-  const files = boardFlipped ? ["h","g","f","e","d","c","b","a"] : ["a","b","c","d","e","f","g","h"];
-  const ranks = boardFlipped ? [1,2,3,4,5,6,7,8] : [8,7,6,5,4,3,2,1];
+  const displayFiles = boardFlipped ? [...files].reverse() : files;
+  const displayRanks = boardFlipped ? [...ranks].reverse() : ranks;
   const legalTargets = useMemo(() => {
     if (!selected) return new Set<string>();
     return new Set(chess.moves({ square: selected, verbose: true }).map(move => move.to));
   }, [chess, selected]);
-
-  function resetBoard() {
-    setChess(new Chess());
-    setSelected(null);
-    setCoachState(prev => ({ ...prev, title: "A clean position starts here", issue: "Ready for your move", bestMove: "Find the principled move." }));
-  }
 
   function handleSquareClick(square: Square) {
     if (selected && legalTargets.has(square)) {
@@ -83,16 +64,24 @@ function App() {
       next.move({ from: selected, to: square, promotion: "q" });
       setChess(next);
       setSelected(null);
-      setCoachState({
-        title: "Good. Now explain the consequence.",
-        subtitle: "The web coach will connect moves to tactical facts as the engine layer comes online.",
-        issue: next.isCheck() ? "Check delivered" : "Position updated",
-        bestMove: next.isCheck() ? "Keep calculating." : "Look for forcing moves first."
-      });
+      setCoachMessage(next.isCheck()
+        ? "Check delivered. Now calculate the opponent's forcing replies."
+        : "Good. Before the next move, name the threat you are creating.");
       return;
     }
+
     const piece = chess.get(square);
     setSelected(piece && piece.color === chess.turn() ? square : null);
+  }
+
+  function resetBoard() {
+    setChess(new Chess());
+    setSelected(null);
+    setCoachMessage("Fresh position. Begin with forcing moves, then look for the opponent's reply.");
+  }
+
+  function giveHint() {
+    setCoachMessage("Hint 1 · Ask what your opponent is threatening before searching for your own move.");
   }
 
   function selectTab(next: Tab) {
@@ -112,12 +101,12 @@ function App() {
         </div>
 
         <div className="topbar-meta">
-          <div className="streak">
-            <span className="streak-dot" />
-            <span>7 day streak</span>
-          </div>
+          <div className="streak"><span className="streak-dot" />7 day streak</div>
           <button className="icon-button" aria-label="Settings"><Settings size={17} /></button>
-          <button className="profile-button"><span className="avatar">B</span><span className="profile-copy"><b>Player</b><small>1500</small></span></button>
+          <button className="profile-button">
+            <span className="avatar">B</span>
+            <span className="profile-copy"><b>Player</b><small>1765</small></span>
+          </button>
           <button className="menu-button" aria-label="Menu" onClick={() => setMobileMenu(v => !v)}>
             {mobileMenu ? <X size={19} /> : <Menu size={19} />}
           </button>
@@ -140,9 +129,7 @@ function App() {
             <div className="sidebar-label">TRAIN</div>
             {tabs.map(({ id, label, icon: Icon }) => (
               <button key={id} className={tab === id ? "sidebar-link active" : "sidebar-link"} onClick={() => selectTab(id)}>
-                <Icon size={18} />
-                <span>{label}</span>
-                {id === "puzzles" && <em>12</em>}
+                <Icon size={18} /><span>{label}</span>{id === "puzzles" && <em>7</em>}
               </button>
             ))}
           </div>
@@ -165,8 +152,8 @@ function App() {
           <section className="hero-row">
             <div>
               <span className="eyebrow">TODAY'S FOCUS</span>
-              <h1>{coachState.title}</h1>
-              <p>{coachState.subtitle}</p>
+              <h1>{tab === "games" ? "Forced mate & consequence retry" : pageHeading(tab)}</h1>
+              <p>{tab === "games" ? "Every mistake is backed by a concrete, checkable fact." : pageDescription(tab)}</p>
             </div>
             <button className="secondary-button"><CircleHelp size={16} /> How it works</button>
           </section>
@@ -175,35 +162,21 @@ function App() {
             <section className="training-grid">
               <div className="board-card">
                 <div className="board-topline">
-                  <div>
-                    <span className="surface-label">COACH BOARD</span>
-                    <strong>Practice position</strong>
-                  </div>
+                  <div><span className="surface-label">COACH BOARD</span><strong>Practice position</strong></div>
                   <button className="board-tool" onClick={() => setBoardFlipped(v => !v)} title="Flip board"><ArrowLeftRight size={17} /></button>
                 </div>
 
                 <div className="board-wrap">
                   <div className="eval-bar"><span style={{ height: "62%" }} /><b>+0.7</b></div>
                   <div className="board">
-                    {ranks.flatMap(rank => files.map(file => {
+                    {displayRanks.flatMap(rank => displayFiles.map(file => {
                       const square = (file + rank) as Square;
                       const piece = chess.get(square);
                       const isLight = (files.indexOf(file) + ranks.indexOf(rank)) % 2 === 0;
-                      const isSelected = square === selected;
                       const isTarget = legalTargets.has(square);
                       return (
-                        <button
-                          key={square}
-                          className={[
-                            "square",
-                            isLight ? "light" : "dark",
-                            isSelected ? "selected" : "",
-                            isTarget ? "target" : ""
-                          ].join(" ")}
-                          onClick={() => handleSquareClick(square)}
-                          aria-label={square}
-                        >
-                          {piece && <span className={piece.color === "w" ? "piece white-piece" : "piece black-piece"}>{pieceGlyphs[piece.type === "p" ? (piece.color === "w" ? "P" : "p") : piece.type === "n" ? (piece.color === "w" ? "N" : "n") : piece.type === "b" ? (piece.color === "w" ? "B" : "b") : piece.type === "r" ? (piece.color === "w" ? "R" : "r") : piece.type === "q" ? (piece.color === "w" ? "Q" : "q") : (piece.color === "w" ? "K" : "k")]}</span>}
+                        <button key={square} className={["square", isLight ? "light" : "dark", square === selected ? "selected" : ""].join(" ")} onClick={() => handleSquareClick(square)} aria-label={square}>
+                          {piece && <span className={piece.color === "w" ? "piece white-piece" : "piece black-piece"}>{glyphFor(piece.type, piece.color)}</span>}
                           {isTarget && <span className={piece ? "capture-ring" : "target-dot"} />}
                         </button>
                       );
@@ -214,9 +187,9 @@ function App() {
                 <div className="board-bottom">
                   <div className="player-row">
                     <div className="player-avatar">B</div>
-                    <div><b>You</b><span>1500 · White</span></div>
+                    <div><b>You</b><span>1765 · White</span></div>
                   </div>
-                  <div className="move-state">{chess.history().length ? chess.history().slice(-6).join("  ") : "Your move"}</div>
+                  <div className="move-state">{chess.history().length ? chess.history().slice(-8).join("  ") : "Your move"}</div>
                   <button className="ghost-button" onClick={resetBoard}><RotateCcw size={15} /> Reset</button>
                 </div>
               </div>
@@ -227,22 +200,18 @@ function App() {
                   <div>
                     <span className="surface-label">COACH NOTE</span>
                     <h2>Think before you calculate</h2>
-                    <p>Start with checks, captures and threats. The goal is not to guess the engine move; it is to explain why the move works.</p>
+                    <p>{coachMessage}</p>
                   </div>
                 </div>
 
                 <div className="issue-card">
                   <div className="issue-icon"><Gauge size={18} /></div>
-                  <div className="issue-copy">
-                    <span className="surface-label">POSITION SIGNAL</span>
-                    <strong>{coachState.issue}</strong>
-                    <span>{coachState.bestMove}</span>
-                  </div>
+                  <div className="issue-copy"><span className="surface-label">POSITION SIGNAL</span><strong>{chess.isCheck() ? "Check delivered" : "Ready for your move"}</strong><span>{chess.history().length ? "Position updated locally" : "No mistake recorded yet"}</span></div>
                   <button className="icon-button dark"><ChevronRight size={16} /></button>
                 </div>
 
                 <div className="coach-actions">
-                  <button className="brass-button" onClick={() => setCoachState(prev => ({ ...prev, title: "Hint 1: name the tactical idea", subtitle: "A useful hint narrows the search without giving the move away." }))}><Lightbulb size={16} /> Give me a hint</button>
+                  <button className="brass-button" onClick={giveHint}><Lightbulb size={16} /> Give me a hint</button>
                   <button className="secondary-button full"><Play size={16} /> Start focused drill</button>
                 </div>
 
@@ -255,9 +224,9 @@ function App() {
             </section>
           )}
 
-          {tab === "openings" && <SectionPanel title="Build your repertoire" eyebrow="OPENINGS" icon={<BookOpen size={18} />} description="Study the lines you actually play. The web client will turn your saved repertoire into focused, explainable training." cards={["King's Indian Defence", "Italian Game", "Queen's Gambit"]} />}
-          {tab === "puzzles" && <SectionPanel title="Train the pattern, not the answer" eyebrow="PUZZLES" icon={<Crosshair size={18} />} description="Work through tactical motifs, record the moments you fail, and feed them back into your review queue." cards={["Mate in 2", "Deflection", "Discovered attack"]} />}
-          {tab === "stats" && <SectionPanel title="See what is actually improving" eyebrow="STATS" icon={<BarChart3 size={18} />} description="Your dashboard should connect accuracy to repeatable weaknesses rather than bury you in generic rating charts." cards={["82% tactical accuracy", "+124 opening rating", "8 mistakes to review"]} />}
+          {tab === "openings" && <OpeningsView />}
+          {tab === "puzzles" && <PuzzlesView />}
+          {tab === "stats" && <StatsView />}
         </main>
       </div>
 
@@ -272,23 +241,127 @@ function App() {
   );
 }
 
-function SectionPanel(props: { title: string; eyebrow: string; icon: React.ReactNode; description: string; cards: string[] }) {
+function OpeningsView() {
   return (
-    <section className="section-panel">
-      <div className="section-panel-head">
-        <div className="panel-icon">{props.icon}</div>
-        <div><span className="eyebrow">{props.eyebrow}</span><h2>{props.title}</h2><p>{props.description}</p></div>
+    <section className="content-stack">
+      <div className="content-toolbar">
+        <div><span className="eyebrow">REPERTOIRE</span><h2>Build the lines you actually play</h2></div>
+        <button className="secondary-button"><Sparkles size={15} /> Continue study</button>
       </div>
-      <div className="feature-list">
-        {props.cards.map((card, index) => (
-          <button key={card} className="feature-card">
-            <span className="feature-index">0{index + 1}</span>
-            <span className="feature-copy"><b>{card}</b><small>Open module <ChevronRight size={13} /></small></span>
-          </button>
+      <div className="course-grid">
+        {openingCourses.map(course => (
+          <article key={course.name} className="course-card">
+            <div className="course-card-top">
+              <span className="rank-pill">{course.rank}</span>
+              <span className="mono">{course.mastery}</span>
+            </div>
+            <h3>{course.name}</h3>
+            <p>{course.subtitle}</p>
+            <div className="progress-track"><span style={{ width: course.progress + "%" }} /></div>
+            <div className="course-foot"><span>{course.progress}% mastered</span><ChevronRight size={15} /></div>
+          </article>
         ))}
       </div>
     </section>
   );
+}
+
+function PuzzlesView() {
+  return (
+    <section className="content-stack">
+      <div className="content-toolbar">
+        <div><span className="eyebrow">TACTICAL TRAINING</span><h2>Train the pattern, not the answer</h2></div>
+        <div className="metric-chip"><Crosshair size={14} /><b>7</b> drills queued</div>
+      </div>
+      <div className="puzzle-grid">
+        {puzzleThemes.map(theme => (
+          <article key={theme.title} className="puzzle-card">
+            <div className="puzzle-card-top"><span className="rank-pill">{theme.badge}</span><span className="mono">{theme.count} drills</span></div>
+            <h3>{theme.title}</h3>
+            <p>{theme.description}</p>
+            <button className="text-action">Open theme <ChevronRight size={14} /></button>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function StatsView() {
+  const min = Math.min(...ratingHistory);
+  const max = Math.max(...ratingHistory);
+  const points = ratingHistory.map((value, i) => {
+    const x = (i / (ratingHistory.length - 1)) * 100;
+    const y = 88 - ((value - min) / Math.max(1, max - min)) * 66;
+    return (x + "," + y);
+  }).join(" ");
+
+  return (
+    <section className="content-stack">
+      <div className="stats-overview">
+        <div><span className="eyebrow">PERFORMANCE</span><h2>1765 <small>-7 this month</small></h2><p>Your current rating profile, drawn from the same concepts used by the Android stats screen.</p></div>
+        <div className="stat-grid">
+          <div><span>PUZZLE RATING</span><b>700</b></div>
+          <div><span>PUZZLES SOLVED</span><b>0</b></div>
+          <div><span>STREAK</span><b>7d</b></div>
+          <div><span>WEEKLY ACCURACY</span><b>82%</b></div>
+        </div>
+      </div>
+
+      <div className="stats-grid">
+        <article className="chart-card">
+          <div className="card-head"><div><span className="surface-label">RATING</span><h3>Last 1 month</h3></div><span className="mono">1765</span></div>
+          <svg className="sparkline" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Rating history chart">
+            <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
+          </svg>
+          <div className="chart-labels"><span>22.8</span><span>21.9</span></div>
+        </article>
+
+        <article className="chart-card">
+          <div className="card-head"><div><span className="surface-label">OPENING PERFORMANCE</span><h3>Win rate by repertoire</h3></div><BarChart3 size={16} /></div>
+          <div className="rate-list">
+            {openingWinRates.map(row => (
+              <div className="rate-row" key={row.name}>
+                <div><b>{row.name}</b><span>{row.games} games</span></div>
+                <strong>{row.winRate}%</strong>
+                <span className="delta">{row.delta}%</span>
+              </div>
+            ))}
+          </div>
+        </article>
+      </div>
+
+      <article className="games-card">
+        <div className="card-head"><div><span className="surface-label">RECENT GAMES</span><h3>What you have actually played</h3></div><button className="text-action">Open games <ChevronRight size={14} /></button></div>
+        {pastGames.map(game => (
+          <div className="game-row" key={game.opponent + game.date}>
+            <span className="result-badge">{game.result}</span>
+            <div className="game-opponent"><b>{game.opponent}</b><span>{game.rating} · {game.opening}</span></div>
+            <span className="mono">{game.moves} moves</span>
+            <span className="date-label">{game.date}</span>
+          </div>
+        ))}
+      </article>
+    </section>
+  );
+}
+
+function pageHeading(tab: Tab) {
+  return {
+    openings: "Build your repertoire",
+    puzzles: "Train the tactical pattern",
+    games: "Review and play with purpose",
+    stats: "See what is actually improving"
+  }[tab];
+}
+
+function pageDescription(tab: Tab) {
+  return {
+    openings: "Learn the top positions, practice your variations, and keep your repertoire connected to real games.",
+    puzzles: "Work through tactical motifs and feed failed positions into a repeatable review loop.",
+    games: "Play, inspect, and turn the moments that matter into future training.",
+    stats: "Connect performance numbers to repeatable weaknesses instead of generic rating noise."
+  }[tab];
 }
 
 export default App;
