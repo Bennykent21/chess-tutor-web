@@ -101,6 +101,17 @@ Chess Tutor follows an **Editorial / Academy** aesthetic inspired by a private c
 
 The intended feeling is serious chess study, not a generic game dashboard.
 
+## Repository branches
+
+The web and Android implementations are intentionally kept on separate branches during parity development:
+
+- `main` — stable/default repository branch.
+- `web` — web application development.
+- `android` — Kotlin/Android application development.
+- `android-web-parity` — temporary integration branch used while bringing the implementations into parity.
+
+Changes should be developed on the appropriate platform branch rather than mixing platform-specific work into `main`.
+
 ## Development status
 
 This is an active development project. The web application provides the reference feature set while the Kotlin/Android application is being brought toward parity.
