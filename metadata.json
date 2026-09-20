@@ -1,6 +1,0 @@
-{
-  "name": "Chess Tutor",
-  "description": "Repertoire-first chess coach with opening practice sparring arena, calibrated Stockfish engine, Lichess study import, hint ladder, and spaced blunder repetition",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
