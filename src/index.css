@@ -167,3 +167,65 @@ button:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
   .eval-bar { width:14px; }
   .piece { font-size:clamp(29px,9vw,47px); }
 }
+
+.content-stack { display:flex;flex-direction:column;gap:18px; }
+.content-toolbar,.card-head { display:flex;align-items:flex-end;justify-content:space-between;gap:16px; }
+.content-toolbar h2,.stats-overview h2 { margin:5px 0 0;font-size:21px;letter-spacing:-.03em; }
+.metric-chip,.rank-pill { display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 9px;color:var(--text-2);font-size:10px; }
+.rank-pill { color:var(--brass);border-color:rgba(212,162,76,.18);background:rgba(212,162,76,.05); }
+.mono { font:500 10px "IBM Plex Mono",monospace;color:var(--text-3); }
+.course-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px; }
+.course-card,.puzzle-card,.chart-card,.games-card,.stats-overview { background:var(--surface);border:1px solid var(--line);border-radius:13px; }
+.course-card,.puzzle-card { padding:16px; }
+.course-card-top,.puzzle-card-top,.course-foot,.chart-labels,.rate-row,.game-row { display:flex;align-items:center;justify-content:space-between;gap:10px; }
+.course-card h3,.puzzle-card h3,.chart-card h3,.games-card h3 { margin:15px 0 5px;font-size:14px;letter-spacing:-.015em; }
+.course-card p,.puzzle-card p { margin:0;color:var(--text-2);font-size:11px;line-height:1.55;min-height:36px; }
+.course-card .progress-track { margin:15px 0 9px; }
+.course-foot { color:var(--text-3);font-size:10px; }
+.course-foot svg { color:var(--text-3); }
+.puzzle-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px; }
+.puzzle-card { min-height:164px; }
+.puzzle-card p { min-height:55px; }
+.text-action { display:inline-flex;align-items:center;gap:4px;border:0;background:none;color:var(--brass);padding:0;cursor:pointer;font-size:11px;font-weight:600; }
+.stats-overview { padding:18px;display:grid;grid-template-columns:1fr 1.4fr;gap:22px;align-items:center; }
+.stats-overview h2 { font-size:30px; }
+.stats-overview h2 small { font:500 10px "IBM Plex Mono",monospace;color:var(--coral);letter-spacing:0;margin-left:7px; }
+.stats-overview p { margin:8px 0 0;color:var(--text-2);font-size:11px;line-height:1.55;max-width:460px; }
+.stat-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:8px; }
+.stat-grid div { background:var(--surface-2);border:1px solid var(--line);padding:11px;border-radius:10px; }
+.stat-grid span,.card-head .surface-label { display:block; }
+.stat-grid span { font:500 9px "IBM Plex Mono",monospace;color:var(--text-3); }
+.stat-grid b { display:block;margin-top:7px;font:600 18px "IBM Plex Mono",monospace;color:var(--text); }
+.stats-grid { display:grid;grid-template-columns:1fr 1.1fr;gap:12px; }
+.chart-card { padding:16px;min-height:236px; }
+.card-head h3 { margin:4px 0 0; }
+.sparkline { width:100%;height:145px;margin-top:15px;overflow:visible;color:var(--brass); }
+.chart-labels { font:9px "IBM Plex Mono",monospace;color:var(--text-3); }
+.rate-list { margin-top:12px; }
+.rate-row { padding:11px 0;border-top:1px solid var(--line);grid-template-columns:minmax(0,1fr) auto auto;display:grid; }
+.rate-row b { font-size:11px; }
+.rate-row div span { display:block;margin-top:3px;color:var(--text-3);font-size:9px; }
+.rate-row strong { font:600 12px "IBM Plex Mono",monospace;color:var(--text); }
+.delta { font:500 10px "IBM Plex Mono",monospace;color:var(--sage); }
+.games-card { padding:16px; }
+.game-row { border-top:1px solid var(--line);padding:11px 0; }
+.game-row:first-of-type { margin-top:8px; }
+.result-badge { width:22px;height:22px;border-radius:7px;display:grid;place-items:center;background:rgba(116,183,142,.1);color:var(--sage);font:600 10px "IBM Plex Mono",monospace; }
+.game-opponent { flex:1;min-width:0; }
+.game-opponent b,.game-opponent span { display:block; }
+.game-opponent b { font-size:11px; }
+.game-opponent span { margin-top:2px;color:var(--text-3);font-size:9px; }
+.date-label { color:var(--text-3);font-size:9px; }
+
+@media (max-width: 960px) {
+  .course-grid,.puzzle-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .stats-overview { grid-template-columns:1fr; }
+  .stats-grid { grid-template-columns:1fr; }
+}
+@media (max-width: 640px) {
+  .content-toolbar { align-items:flex-start;flex-direction:column; }
+  .course-grid,.puzzle-grid { grid-template-columns:1fr; }
+  .stat-grid { grid-template-columns:repeat(2,1fr); }
+  .game-row .date-label { display:none; }
+  .game-row .mono { font-size:9px; }
+}
