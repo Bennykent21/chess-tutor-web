@@ -229,3 +229,56 @@ button:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
   .game-row .date-label { display:none; }
   .game-row .mono { font-size:9px; }
 }
+
+.filter-row { display:flex;flex-wrap:wrap;gap:7px;margin-bottom:15px; }
+.filter-chip { border:1px solid var(--line);background:var(--surface);color:var(--text-3);border-radius:999px;padding:7px 10px;font-size:10px;cursor:pointer; }
+.filter-chip.active { color:var(--brass);border-color:rgba(212,162,76,.22);background:rgba(212,162,76,.07); }
+.lesson-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px; }
+.lesson-card { position:relative;min-height:208px;padding:17px;background:var(--surface);border:1px solid var(--line);border-radius:13px; }
+.lesson-number { position:absolute;right:13px;top:12px;font:500 10px "IBM Plex Mono",monospace;color:var(--text-3); }
+.lesson-card h3 { margin:15px 28px 5px 0;font-size:14px;letter-spacing:-.015em; }
+.lesson-subtitle { color:var(--text-secondary); }
+.lesson-card p { margin:11px 0 15px;color:var(--text-2);font-size:11px;line-height:1.55;min-height:50px; }
+.repertoire-strip { margin-top:18px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:13px;display:flex;align-items:center;justify-content:space-between;gap:16px; }
+.repertoire-strip h2 { margin:4px 0 0;font-size:15px; }
+.repertoire-pills { display:flex;flex-wrap:wrap;justify-content:flex-end;gap:7px; }
+.repertoire-pill { display:inline-flex;gap:7px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:8px 9px;background:var(--surface-2);font-size:10px;color:var(--text-2); }
+.repertoire-pill b { font:500 9px "IBM Plex Mono",monospace;color:var(--brass); }
+.play-grid { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:12px; }
+.arena-card,.recent-card,.review-summary,.review-list { background:var(--surface);border:1px solid var(--line);border-radius:13px; }
+.arena-card { padding:18px;min-height:260px;display:flex;flex-direction:column;justify-content:space-between; }
+.arena-bot { display:flex;gap:12px;align-items:center; }
+.bot-avatar { width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:var(--surface-3);border:1px solid var(--brass-dim);color:var(--brass);font-weight:700; }
+.arena-bot h2 { margin:5px 0 3px;font-size:18px; }
+.arena-bot h2 small { margin-left:6px;font:500 9px "IBM Plex Mono",monospace;color:var(--text-3); }
+.arena-bot p { margin:0;color:var(--text-2);font-size:11px; }
+.arena-buttons { display:flex;gap:8px; }
+.arena-buttons > * { flex:1; }
+.recent-card { padding:16px; }
+.review-layout { display:grid;grid-template-columns:280px minmax(0,1fr);gap:12px; }
+.review-summary { padding:18px; }
+.review-summary > strong { display:block;margin-top:8px;font:600 25px "IBM Plex Mono",monospace; }
+.review-summary p { color:var(--text-2);font-size:10px;line-height:1.55;margin:7px 0 18px; }
+.review-summary .brass-button { width:100%; }
+.review-progress { height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;margin-bottom:15px; }
+.review-progress span { display:block;height:100%;background:var(--brass);border-radius:99px; }
+.review-list { padding:0 16px; }
+.review-item { display:grid;grid-template-columns:28px 1fr auto auto;align-items:center;gap:11px;padding:14px 0;border-bottom:1px solid var(--line); }
+.review-item:last-child { border-bottom:0; }
+.review-index { width:24px;height:24px;border-radius:7px;background:var(--surface-2);display:grid;place-items:center;font:500 9px "IBM Plex Mono",monospace;color:var(--text-3); }
+.review-item b { font-size:11px; }
+.review-item p { margin:4px 0 0;color:var(--text-3);font-size:9px; }
+.review-stage { font:500 9px "IBM Plex Mono",monospace;color:var(--brass); }
+
+@media (max-width: 960px) {
+  .lesson-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .repertoire-strip { align-items:flex-start;flex-direction:column; }
+  .repertoire-pills { justify-content:flex-start; }
+  .play-grid,.review-layout { grid-template-columns:1fr; }
+}
+@media (max-width: 640px) {
+  .lesson-grid { grid-template-columns:1fr; }
+  .arena-buttons { flex-direction:column; }
+  .review-item { grid-template-columns:26px 1fr auto; }
+  .review-item svg { display:none; }
+}
