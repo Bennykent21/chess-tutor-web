@@ -181,7 +181,7 @@ fun FenPgnImportDialog(
   onDismiss: () -> Unit,
   onPlayFenInArena: (fen: String, title: String) -> Unit,
   onAddTacticsPuzzle: ((puzzle: TacticalPuzzle) -> Unit)? = null,
-  onLoadPgnForReview: ((pgn: String) -> Unit)? = null,
+  onLoadPgnForReview: ((pgn: String, playerSide: String) -> Unit)? = null,
   onImportToRepertoire: ((repertoire: RepertoireLine) -> Unit)? = null
 ) {
   val context = LocalContext.current
@@ -202,10 +202,14 @@ fun FenPgnImportDialog(
 
   // PGN State
   var pgnText by remember { mutableStateOf(PGN_PRESETS[0].pgn) }
+  var pgnPlayerSide by remember { mutableStateOf("Both") }
   val parsedPgnGame = remember(pgnText) { runCatching { PgnParser.parse(pgnText) }.getOrNull() }
   var selectedPgnPly by remember(parsedPgnGame) {
     mutableIntStateOf(parsedPgnGame?.moves?.lastIndex?.coerceAtLeast(0) ?: 0)
   }
+
+  // Controls which side's mistakes are treated as the learner's mistakes.
+  // Kept at import level so analysis never has to guess player identity.
 
   // Lichess State
   var lichessStudyInput by remember { mutableStateOf("") }
@@ -789,7 +793,7 @@ fun FenPgnImportDialog(
                       if (onLoadPgnForReview != null) {
                         OutlinedButton(
                           onClick = {
-                            onLoadPgnForReview(pgnText)
+                            onLoadPgnForReview(pgnText, pgnPlayerSide)
                             onDismiss()
                           },
                           shape = RoundedCornerShape(8.dp),
@@ -1001,7 +1005,7 @@ fun FenPgnImportDialog(
                       val res = ChessComClient.fetchRecentGames(chessComUsername)
                       chessComLoading = false
                       res.onSuccess { games ->
-                        chessComGames = games
+                        chessComGames = games.map { game -> ChessComGameItem(url = game.url ?: "", pgn = game.pgn ?: "", time_class = game.timeClass ?: "game", end_time = game.endTime ?: 0L, white = game.white?.let { ChessComGameItem.Player(it.username ?: "?", it.rating ?: 0, it.result ?: "") }, black = game.black?.let { ChessComGameItem.Player(it.username ?: "?", it.rating ?: 0, it.result ?: "") }) }
                         if (games.isEmpty()) {
                           chessComError = "No games found in recent archives for '$chessComUsername'"
                         }
@@ -1094,7 +1098,7 @@ fun FenPgnImportDialog(
                           onClick = {
                             val gamePgn = game.pgn.orEmpty()
                             if (gamePgn.isNotBlank()) {
-                              onLoadPgnForReview?.invoke(gamePgn)
+                              onLoadPgnForReview?.invoke(gamePgn, "Both")
                               onDismiss()
                             }
                           },

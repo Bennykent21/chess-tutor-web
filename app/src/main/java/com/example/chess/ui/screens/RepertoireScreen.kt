@@ -43,6 +43,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -60,7 +61,11 @@ import com.example.chess.core.Position
 import com.example.chess.core.Square
 import com.example.chess.openings.RepertoireLine
 import com.example.chess.openings.RepertoireRepository
+import com.example.chess.engine.Evaluation
+import com.example.chess.engine.LocalChessEngine
+import com.example.chess.engine.TrainingLevel
 import com.example.chess.ui.components.InteractiveChessBoard
+import com.example.chess.ui.components.ChessBoardTheme
 import com.example.chess.ui.theme.CanvasCardBorder
 import com.example.chess.ui.theme.CoachAccentGold
 import com.example.chess.ui.theme.CoachPrimary
@@ -81,7 +86,8 @@ enum class RepertoireFilter {
 @Composable
 fun RepertoireScreen(
   onPracticeLineInArena: (startingFen: String, lineTitle: String) -> Unit,
-  onOpenImportModal: () -> Unit
+  onOpenImportModal: () -> Unit,
+  onOpenStudyBoard: (lineId: String) -> Unit = {}
 ) {
   val repertoires by RepertoireRepository.repertoiresFlow.collectAsState()
   var activeFilter by remember { mutableStateOf(RepertoireFilter.ALL) }
@@ -92,6 +98,12 @@ fun RepertoireScreen(
 
   // Active study step within the selected repertoire line
   var currentStepIndex by remember(activeLine) { mutableIntStateOf(0) }
+  var boardThemeIndex by remember { mutableIntStateOf(0) }
+  var flipped by remember(activeLine) { mutableStateOf(activeLine?.side == PieceColor.BLACK) }
+  var showBestMove by remember { mutableStateOf(false) }
+  var evaluation by remember { mutableStateOf<Evaluation?>(null) }
+  var recommendedMove by remember { mutableStateOf<Move?>(null) }
+  val engine = remember { LocalChessEngine() }
 
   val filteredRepertoires = remember(repertoires, activeFilter) {
     when (activeFilter) {
@@ -195,8 +207,7 @@ fun RepertoireScreen(
           RepertoireLineCard(
             line = line,
             onStudyClick = {
-              selectedLineId = line.id
-              currentStepIndex = 0
+              onOpenStudyBoard(line.id)
             },
             onSparClick = {
               val firstMoveFen = line.moves.firstOrNull()?.fenBefore ?: Position.STARTING_FEN
@@ -215,6 +226,18 @@ fun RepertoireScreen(
           Position.fromFen(Position.STARTING_FEN)
         }
       }
+
+      LaunchedEffect(currentPosition, showBestMove) {
+        evaluation = null
+        recommendedMove = null
+        evaluation = runCatching { engine.evaluatePosition(currentPosition, depth = 3) }.getOrNull()
+        if (showBestMove) {
+          recommendedMove = runCatching { engine.selectMove(currentPosition, TrainingLevel.EXPERT_1800) }.getOrNull()
+        }
+      }
+
+      val themes = ChessBoardTheme.values()
+      val activeBoardTheme = themes[boardThemeIndex % themes.size]
 
       // Back navigation button
       Row(
@@ -262,12 +285,25 @@ fun RepertoireScreen(
       Spacer(modifier = Modifier.height(8.dp))
 
       // Interactive Chessboard displaying current ply
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Text(text = evaluation?.format() ?: "Evaluating...", color = TextBody, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+          OutlinedButton(onClick = { boardThemeIndex = (boardThemeIndex + 1) % themes.size }) { Text(activeBoardTheme.label, fontSize = 9.sp) }
+          IconButton(onClick = { flipped = !flipped }) { Icon(Icons.Default.Refresh, contentDescription = "Flip board", tint = TextMuted) }
+          IconButton(onClick = { showBestMove = !showBestMove }) { Icon(if (showBestMove) Icons.Default.Check else Icons.Default.Lightbulb, contentDescription = "Best move hint", tint = CoachAccentGold) }
+        }
+      }
+
       InteractiveChessBoard(
         position = currentPosition,
-        modifier = Modifier
-          .fillMaxWidth()
-          .padding(horizontal = 4.dp),
-        flipped = activeLine.side == PieceColor.BLACK
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+        flipped = flipped,
+        boardTheme = activeBoardTheme,
+        recommendedArrow = recommendedMove?.let { it.from to it.to }
       )
 
       Spacer(modifier = Modifier.height(10.dp))

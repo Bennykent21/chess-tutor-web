@@ -81,6 +81,7 @@ import com.example.chess.core.Position
 import com.example.chess.core.Square
 import com.example.chess.data.ChessDatabaseProvider
 import com.example.chess.data.MistakeRecord
+import com.example.chess.data.MistakeReviewService
 import com.example.chess.network.ChessComClient
 import com.example.chess.network.ChessComGameItem
 import com.example.chess.engine.Evaluation
@@ -149,13 +150,22 @@ fun ReviewScreen(
   var showImportDialog by remember { mutableStateOf(false) }
 
   val dao = remember { ChessDatabaseProvider.getDatabase(context).chessDao() }
+  val mistakeReviewService = remember { MistakeReviewService(dao) }
   val activeMistakesFlow = remember { dao.getActiveMistakes() }
   val mistakeList by activeMistakesFlow.collectAsState(initial = emptyList())
+  val dueReviewCount = mistakeList.count { it.reviewDueTimestampMs <= System.currentTimeMillis() }
+  val dueMistakes = remember(mistakeList) {
+    mistakeList.filter { it.reviewDueTimestampMs <= System.currentTimeMillis() }
+  }
 
   var currentSubTab by remember { mutableStateOf(ReviewSubTab.GAME_STORY) }
   var chessComUsername by remember { mutableStateOf("") }
   var isSyncing by remember { mutableStateOf(false) }
   var syncMessage by remember { mutableStateOf<String?>(null) }
+
+  var selectedMistakeId by remember { mutableStateOf<Long?>(null) }
+  var reviewMode by remember { mutableStateOf(false) }
+
 
   val defaultChapters = remember {
     listOf(
@@ -204,6 +214,7 @@ fun ReviewScreen(
     """.trimIndent()
   }
   var pgnInputText by remember { mutableStateOf(samplePgn) }
+  var selectedPlayerSide by remember { mutableStateOf("Both") }
   var parsedGame by remember { mutableStateOf<ParsedPgnGame?>(PgnParser.parse(samplePgn)) }
   var currentMoveIndex by remember { mutableStateOf(parsedGame?.moves?.size?.minus(1)?.coerceAtLeast(0) ?: 0) }
 
@@ -220,43 +231,99 @@ fun ReviewScreen(
     }
   }
 
-  // Move Classification & Accuracy Calculation
-  val analyzedGameMoves = remember(parsedGame) {
-    val moves = parsedGame?.moves ?: emptyList()
-    if (moves.isEmpty()) return@remember emptyList<AnalyzedMove>()
-    val list = mutableListOf<AnalyzedMove>()
-    var posBefore = Position.fromFen(Position.STARTING_FEN)
-    var prevEval = Evaluation.cp(chessEngine.evaluateStatic(posBefore))
+  // Engine-backed review analysis. Runs off the Compose thread and updates the UI when complete.
+  var analyzedGameMoves by remember { mutableStateOf<List<AnalyzedMove>>(emptyList()) }
+  var isAnalyzingGame by remember { mutableStateOf(false) }
 
-    for (i in moves.indices) {
-      val m = moves[i]
-      val posAfter = m.positionAfter
-      val curCp = chessEngine.evaluateStatic(posAfter)
-      val curEval = Evaluation.cp(curCp)
-      val playerColor = posBefore.sideToMove
-      val isBook = i < 6
-      val bestMove = m.move
-      val classification = if (isBook) MoveClassification.BOOK else BlunderClassifier.classify(playerColor, prevEval, curEval, isBestMove = false)
-      val explanation = BlunderClassifier.generateExplanation(playerColor, m.move, posBefore, posAfter, classification, bestMove)
+  LaunchedEffect(parsedGame) {
+    val moves = parsedGame?.moves.orEmpty()
+    if (moves.isEmpty()) {
+      analyzedGameMoves = emptyList()
+      return@LaunchedEffect
+    }
 
-      list.add(
-        AnalyzedMove(
-          moveIndex = i,
-          move = m.move,
+    isAnalyzingGame = true
+    analyzedGameMoves = emptyList()
+
+    val results = withContext(Dispatchers.Default) {
+      val list = mutableListOf<AnalyzedMove>()
+      var posBefore = Position.fromFen(Position.STARTING_FEN)
+      var prevEval = chessEngine.evaluatePosition(posBefore, depth = 3)
+
+      for ((index, parsedMove) in moves.withIndex()) {
+        val playerColor = posBefore.sideToMove
+        val bestMove = chessEngine.findBestMove(posBefore, depth = 3)
+        val after = parsedMove.positionAfter
+        val afterEval = chessEngine.evaluatePosition(after, depth = 3)
+        val isBook = index < 6
+        val classification = if (isBook) {
+          MoveClassification.BOOK
+        } else {
+          BlunderClassifier.classify(
+            playerColor,
+            prevEval,
+            afterEval,
+            isBestMove = bestMove.uci == parsedMove.move.uci
+          )
+        }
+        list += AnalyzedMove(
+          moveIndex = index,
+          move = parsedMove.move,
           playerColor = playerColor,
           positionBefore = posBefore,
-          positionAfter = posAfter,
+          positionAfter = after,
           evalBefore = prevEval,
-          evalAfter = curEval,
+          evalAfter = afterEval,
           bestMove = bestMove,
           classification = classification,
-          explanation = explanation
+          explanation = BlunderClassifier.generateExplanation(
+            playerColor,
+            parsedMove.move,
+            posBefore,
+            after,
+            classification,
+            bestMove
+          )
         )
-      )
-      posBefore = posAfter
-      prevEval = curEval
+        posBefore = after
+        prevEval = afterEval
+      }
+      list
     }
-    list
+
+    analyzedGameMoves = results
+
+    // Persist only the user's significant mistakes. For imported games without an
+    // explicit player identity, persist both sides rather than silently assigning
+    // the wrong side to the user.
+    withContext(Dispatchers.IO) {
+      results.asSequence()
+        .filter {
+          (selectedPlayerSide == "Both" ||
+            (selectedPlayerSide == "White" && it.playerColor == PieceColor.WHITE) ||
+            (selectedPlayerSide == "Black" && it.playerColor == PieceColor.BLACK)) &&
+            (it.classification == MoveClassification.MISTAKE || it.classification == MoveClassification.BLUNDER)
+        }
+        .forEach { analyzed ->
+          val fenBefore = analyzed.positionBefore.toFen()
+          val playedMoveUci = analyzed.move.uci
+          val bestMoveUci = analyzed.bestMove.uci
+          if (dao.findMistakeId(fenBefore, playedMoveUci, bestMoveUci) == null) {
+            dao.insertMistake(
+              MistakeRecord(
+                fenBefore = fenBefore,
+                playedMoveUci = playedMoveUci,
+                bestMoveUci = bestMoveUci,
+                evalDeltaPawns = (analyzed.evalBefore.scoreForSide(analyzed.playerColor) -
+                  analyzed.evalAfter.scoreForSide(analyzed.playerColor)).coerceAtLeast(0f),
+                pedagogicalExplanation = analyzed.explanation,
+                reviewDueTimestampMs = System.currentTimeMillis()
+              )
+            )
+          }
+        }
+    }
+    isAnalyzingGame = false
   }
 
   val whiteAccuracy = remember(analyzedGameMoves) {
@@ -273,6 +340,24 @@ fun ReviewScreen(
   var drillLegalTargets by remember { mutableStateOf<Set<Square>>(emptySet()) }
   var drillSuccess by remember { mutableStateOf<Boolean?>(null) }
   var drillFeedbackText by remember { mutableStateOf<String?>(null) }
+
+  fun submitMistakeReview(id: Long, solved: Boolean) {
+    coroutineScope.launch(Dispatchers.IO) {
+      mistakeReviewService.recordResult(id, solved)
+      withContext(Dispatchers.Main) {
+        drillSuccess = solved
+        drillFeedbackText = if (solved) "Correct. Next review scheduled." else "Not quite. This position will return sooner."
+      }
+    }
+  }
+
+  fun beginNextMistake() {
+    val next = dueMistakes.getOrNull(drillIndex)
+    selectedMistakeId = next?.id
+    drillSuccess = null
+    drillFeedbackText = null
+    isDrillActive = next != null
+  }
 
   // Fast centipawn evaluation curve across all parsed game moves
   val gameEvalPoints = remember(parsedGame) {
@@ -617,6 +702,47 @@ fun ReviewScreen(
                   fontWeight = FontWeight.Bold,
                   letterSpacing = 1.sp
                 )
+                if (dueReviewCount > 0) {
+            Box(
+              modifier = Modifier
+                .fillMaxWidth()
+                .liquidGlassPill(shape = RoundedCornerShape(10.dp), isActive = true)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Column {
+                  Text("REVIEW QUEUE", color = CoachAccentGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                  Text(
+                    dueReviewCount.toString() + " position" + if (dueReviewCount == 1) "" else "s" + " due now",
+                    color = TextTitle,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                  )
+                }
+                Button(
+                  onClick = {
+                    currentSubTab = ReviewSubTab.SPACED_MISTAKES
+                    reviewMode = true
+                    selectedMistakeId = mistakeList.firstOrNull {
+                      it.reviewDueTimestampMs <= System.currentTimeMillis()
+                    }?.id
+                  },
+                  colors = ButtonDefaults.buttonColors(
+                    containerColor = CoachPrimary,
+                    contentColor = Color(0xFF0F1115)
+                  ),
+                  shape = RoundedCornerShape(10.dp)
+                ) {
+                  Text("Start review", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+              }
+            }
+          }
+
                 Text(
                   text = selectedChapter.classification.badgeText,
                   color = when (selectedChapter.classification) {
@@ -746,6 +872,38 @@ fun ReviewScreen(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold
               )
+            }
+          }
+        }
+      }
+    } else if (currentSubTab == ReviewSubTab.SPACED_MISTAKES) {
+      item {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+          Text(text = "DUE NOW · " + dueReviewCount, color = CoachAccentGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+          if (dueMistakes.isEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().liquidGlassCard(shape = RoundedCornerShape(16.dp)).padding(18.dp)) {
+              Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Review queue is clear", color = TextTitle, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text("No mistake positions are due right now.", color = TextBody, fontSize = 12.sp)
+              }
+            }
+          } else {
+            dueMistakes.forEach { mistake ->
+              val selected = mistake.id == selectedMistakeId
+              Box(modifier = Modifier.fillMaxWidth().liquidGlassCard(shape = RoundedCornerShape(14.dp), borderBrush = if (selected) LiquidGlassBorderGold else LiquidGlassBorder).clickable { selectedMistakeId = mistake.id; reviewMode = true }.padding(14.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                  Text("Stage " + (mistake.repetitionStage + 1) + " · " + mistake.timesReviewed + " reviews", color = if (selected) CoachAccentGold else TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                  Text(mistake.pedagogicalExplanation, color = TextTitle, fontSize = 13.sp)
+                  Text("Played " + mistake.playedMoveUci + " · Best " + mistake.bestMoveUci, color = TextMuted, fontSize = 11.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                  if (selected) {
+                    Button(onClick = { onRetryPosition(mistake.fenBefore, Move.fromUci(mistake.bestMoveUci)) }, colors = ButtonDefaults.buttonColors(containerColor = CoachPrimary, contentColor = Color(0xFF0F1115))) {
+                      Icon(Icons.Default.Replay, null, modifier = Modifier.size(15.dp))
+                      Spacer(Modifier.width(5.dp))
+                      Text("Retry this position", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -1366,8 +1524,7 @@ fun ReviewScreen(
                       if (soundEnabled) soundEffects.playVictory()
                       coroutineScope.launch {
                         withContext(Dispatchers.IO) {
-                          val nextStage = (record.repetitionStage + 1).coerceAtMost(4)
-                          dao.updateMistake(record.copy(repetitionStage = nextStage, timesSolvedSuccessfully = record.timesSolvedSuccessfully + 1))
+                          mistakeReviewService.recordResult(record.id, solved = true)
                         }
                       }
                     } else {
@@ -1377,7 +1534,7 @@ fun ReviewScreen(
                       if (soundEnabled) soundEffects.playDefeat()
                       coroutineScope.launch {
                         withContext(Dispatchers.IO) {
-                          dao.updateMistake(record.copy(repetitionStage = 0))
+                          mistakeReviewService.recordResult(record.id, solved = false)
                         }
                       }
                     }
@@ -1428,7 +1585,7 @@ fun ReviewScreen(
 
                 Button(
                   onClick = {
-                    if (drillIndex < mistakeList.size - 1) {
+                    if (drillIndex < dueMistakes.size - 1) {
                       drillIndex++
                       drillSelectedSquare = null
                       drillLegalTargets = emptySet()
@@ -1443,7 +1600,7 @@ fun ReviewScreen(
                   colors = ButtonDefaults.buttonColors(containerColor = CoachPrimary, contentColor = Color(0xFF0F1115))
                 ) {
                   Text(
-                    text = if (drillIndex < mistakeList.size - 1) "Next Mistake" else "Finish Drill",
+                    text = if (drillIndex < dueMistakes.size - 1) "Next Mistake" else "Finish Drill",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                   )
@@ -1455,7 +1612,7 @@ fun ReviewScreen(
       }
 
       // Hero Drill Launcher Card (when drill is inactive)
-      if (!isDrillActive && mistakeList.isNotEmpty()) {
+      if (!isDrillActive && dueMistakes.isNotEmpty()) {
         item {
           Box(
             modifier = Modifier
@@ -1476,7 +1633,7 @@ fun ReviewScreen(
                   fontWeight = FontWeight.Bold
                 )
                 Text(
-                  text = "${mistakeList.size} positions due for practice. Strengthen tactical reflexes using Leitner intervals.",
+                  text = "${dueMistakes.size} positions due for practice. Strengthen tactical reflexes using Leitner intervals.",
                   color = TextBody,
                   fontSize = 11.5.sp,
                   lineHeight = 15.sp,
@@ -1565,7 +1722,7 @@ fun ReviewScreen(
                   .padding(horizontal = 8.dp, vertical = 4.dp)
               ) {
                 Text(
-                  text = "Stage ${record.repetitionStage}/3",
+                  text = if (record.repetitionStage >= 4) "Mastered" else "Stage ${record.repetitionStage}/4",
                   color = CoachAccentGold,
                   fontSize = 11.sp,
                   fontWeight = FontWeight.Bold
@@ -1603,11 +1760,8 @@ fun ReviewScreen(
                   if (soundEnabled) {
                     soundEffects.playVictory()
                   }
-                  coroutineScope.launch {
-                    withContext(Dispatchers.IO) {
-                      val nextStage = (record.repetitionStage + 1).coerceAtMost(4)
-                      dao.updateMistake(record.copy(repetitionStage = nextStage, timesSolvedSuccessfully = record.timesSolvedSuccessfully + 1))
-                    }
+                  coroutineScope.launch(Dispatchers.IO) {
+                    mistakeReviewService.recordResult(record.id, solved = true)
                   }
                 },
                 modifier = Modifier.height(40.dp),
@@ -1636,8 +1790,9 @@ fun ReviewScreen(
         showImportDialog = false
         if (soundEnabled) soundEffects.playVictory()
       },
-      onLoadPgnForReview = { pgn ->
+      onLoadPgnForReview = { pgn, playerSide ->
         pgnInputText = pgn
+        selectedPlayerSide = playerSide
         val parsed = PgnParser.parse(pgn)
         parsedGame = parsed
         currentMoveIndex = 0

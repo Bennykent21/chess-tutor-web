@@ -115,4 +115,5 @@ data class ScoredMove(
 interface EngineClient {
   suspend fun evaluatePosition(position: Position, depth: Int = 4): Evaluation
   suspend fun selectMove(position: Position, level: TrainingLevel): Move
+  suspend fun findBestMove(position: Position, depth: Int = 4): Move
 }

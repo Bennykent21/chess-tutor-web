@@ -134,6 +134,17 @@ class LocalChessEngine : EngineClient {
     }
   }
 
+  override suspend fun findBestMove(position: Position, depth: Int): Move = withContext(Dispatchers.Default) {
+    val legalMoves = LegalMoveGenerator.generateLegalMoves(position)
+    require(legalMoves.isNotEmpty()) { "No legal moves available in position" }
+    val isWhite = position.sideToMove == PieceColor.WHITE
+    legalMoves.maxByOrNull { move ->
+      val next = LegalMoveGenerator.makeMove(position, move)
+      val score = minimax(next, (depth - 1).coerceAtLeast(0), -30000, 30000, !isWhite)
+      if (isWhite) score else -score
+    } ?: legalMoves.first()
+  }
+
   override suspend fun selectMove(position: Position, level: TrainingLevel): Move = withContext(Dispatchers.Default) {
     val legalMoves = LegalMoveGenerator.generateLegalMoves(position)
     if (legalMoves.isEmpty()) error("No legal moves available in position")
