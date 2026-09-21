@@ -11,7 +11,7 @@ This repository is intentionally web-only. The Android implementation lives in t
 - Dark academy/editorial visual system aligned to the Android design tokens
 - Responsive desktop/tablet/mobile shell
 - Coach-first training board
-- Four product areas: Openings, Puzzles, VS Games, Stats
+- Four product areas: Train, Learn, Play, Review
 - Supabase client bootstrap, ready for the shared backend configuration
 
 ## Design direction
@@ -33,3 +33,5 @@ Set these when connecting the shared Supabase project:
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 ```
+
+The default development server is available at http://localhost:3000.
