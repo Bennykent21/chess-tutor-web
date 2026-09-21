@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { Chess, Square } from "chess.js";
 import {
-  ArrowLeftRight, BookOpen, Brain, ChevronRight, CircleHelp, Crosshair,
+  ArrowLeftRight, BookOpen, Brain, ChevronRight, CircleHelp,
   Gauge, History, Lightbulb, Menu, Play, RotateCcw, Settings, Swords,
   Target, Trophy, X
 } from "lucide-react";
-import { openingCourses, puzzleThemes, pastGames } from "./data/content";
+import { openingCourses, pastGames } from "./data/content";
 
 type Tab = "train" | "learn" | "play" | "review";
 
