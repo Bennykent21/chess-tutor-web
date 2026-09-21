@@ -1,13 +1,49 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Chess, Square } from "chess.js";
 import {
-  ArrowLeftRight, BookOpen, Brain, ChevronRight, CircleHelp,
-  Gauge, History, Lightbulb, Menu, Play, RotateCcw, Settings, Swords,
-  Target, Trophy, X
+  ArrowLeftRight,
+  BookOpen,
+  Brain,
+  ChevronRight,
+  CircleHelp,
+  Gauge,
+  History,
+  Lightbulb,
+  Menu,
+  Play,
+  RotateCcw,
+  Settings,
+  Shield,
+  Swords,
+  Target,
+  Trophy,
+  X,
+  Zap
 } from "lucide-react";
 import { openingCourses, pastGames } from "./data/content";
 
 type Tab = "train" | "learn" | "play" | "review";
+type Orientation = "w" | "b";
+
+type Puzzle = {
+  title: string;
+  category: string;
+  fen: string;
+  goal: string;
+  hint: string;
+  expected: string;
+  success: string;
+};
+
+type Lesson = {
+  title: string;
+  subtitle: string;
+  category: string;
+  copy: string;
+  fen: string;
+  move: string;
+  explanation: string;
+};
 
 const tabs = [
   { id: "train" as const, label: "Train", icon: Target },
@@ -16,21 +52,140 @@ const tabs = [
   { id: "review" as const, label: "Review", icon: History }
 ];
 
-const glyph: Record<string, string> = {
-  wp: "♙", wn: "♘", wb: "♗", wr: "♖", wq: "♕", wk: "♔",
-  bp: "♟", bn: "♞", bb: "♝", br: "♜", bq: "♛", bk: "♚"
-};
+const trainingPositions: Puzzle[] = [
+  {
+    title: "Forced mate in one",
+    category: "Blunder Patterns",
+    fen: "7k/5Q2/7K/8/8/8/8/8 w - - 0 1",
+    goal: "Find the only move that finishes the game.",
+    hint: "Look for a queen move that gives check while staying protected by your king.",
+    expected: "f7g7",
+    success: "Mate. The queen seals the only escape squares while your king protects g7."
+  },
+  {
+    title: "Centralize before you attack",
+    category: "Opening",
+    fen: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1",
+    goal: "Build the position before chasing tactics.",
+    hint: "Ask which move claims central space and opens a diagonal for a bishop.",
+    expected: "d2d4",
+    success: "Good. You establish a second central pawn and unlock the c1 bishop."
+  }
+];
 
-const files = ["a","b","c","d","e","f","g","h"];
-const ranks = [8,7,6,5,4,3,2,1];
+const lessons: Lesson[] = [
+  {
+    title: "The Golden Rules of Opening",
+    subtitle: "Center Control & Rapid Development",
+    category: "Openings",
+    copy: "Control the center, develop pieces, and castle before you start a side attack.",
+    fen: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1",
+    move: "d2d4",
+    explanation: "A second central pawn makes your position easier to develop and gives the c1 bishop a useful diagonal."
+  },
+  {
+    title: "The Italian Game",
+    subtitle: "1. e4 e5 2. Nf3 Nc6 3. Bc4",
+    category: "Openings",
+    copy: "Develop with tempo against the center and put immediate pressure on f7.",
+    fen: "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 3",
+    move: "f1c4",
+    explanation: "The bishop develops to an active diagonal and immediately points at the sensitive f7 square."
+  },
+  {
+    title: "The Royal Knight Fork",
+    subtitle: "Simultaneous Multi-Square Strikes",
+    category: "Tactics",
+    copy: "A fork works because one piece cannot answer two forcing threats at once.",
+    fen: "4k3/8/8/3n4/2N5/8/8/4K3 w - - 0 1",
+    move: "c4d6",
+    explanation: "A knight fork is valuable when the targets are high-value and the fork lands with tempo."
+  },
+  {
+    title: "Outposts & Knight Strongholds",
+    subtitle: "Dominating the 5th and 6th Ranks",
+    category: "Middlegame",
+    copy: "Look for squares the opponent cannot attack with a pawn and make those squares permanent assets.",
+    fen: "4k3/pp3ppp/8/3N4/8/8/PP3PPP/4K3 w - - 0 1",
+    move: "d5c7",
+    explanation: "The knight jumps into a pawn-safe square that attacks useful targets and limits the enemy king."
+  },
+  {
+    title: "The Opposition & Key Squares",
+    subtitle: "The Universal King & Pawn Blueprint",
+    category: "Endgame",
+    copy: "King activity matters more than material once the board is simplified.",
+    fen: "8/8/8/3k4/3P4/8/8/3K4 w - - 0 1",
+    move: "d1e2",
+    explanation: "Approaching the critical files while maintaining opposition is the foundation of many king-and-pawn endings."
+  },
+  {
+    title: "Missed Mate in 1",
+    subtitle: "Decisive Tactical Blindness",
+    category: "Blunder Patterns",
+    copy: "Train the habit of scanning every legal check before moving a quiet piece.",
+    fen: "7k/5Q2/7K/8/8/8/8/8 w - - 0 1",
+    move: "f7g7",
+    explanation: "The mating move works because the queen covers h8, h7 and g8 while the king protects g7."
+  }
+];
+
+const reviewPositions: Puzzle[] = [
+  trainingPositions[0],
+  {
+    title: "Hanging major pieces",
+    category: "Blunder Patterns",
+    fen: "4k3/8/8/8/3q4/8/3R4/4K3 w - - 0 1",
+    goal: "Notice the loose rook before making a move.",
+    hint: "Count attackers and defenders on the rook before calculating deeper.",
+    expected: "d2d4",
+    success: "The review habit is the point: first ask what is attacked before creating a new plan."
+  },
+  trainingPositions[1],
+  {
+    title: "Back-rank checkmate & luft",
+    category: "Blunder Patterns",
+    fen: "6k1/5ppp/8/8/8/8/5PPP/4R1K1 w - - 0 1",
+    goal: "Find a forcing move before the opponent improves their king safety.",
+    hint: "Look at the back rank and ask whether the king has an escape square.",
+    expected: "e1e8",
+    success: "The rook becomes active on the open file and the king's restricted space makes forcing play possible."
+  }
+];
+
+const files = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
+const ranks = [8, 7, 6, 5, 4, 3, 2, 1] as const;
 
 function App() {
   const [tab, setTab] = useState<Tab>("train");
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [trainingPuzzle, setTrainingPuzzle] = useState<Puzzle>(trainingPositions[0]);
+  const [weeklyAccuracy, setWeeklyAccuracy] = useState(82);
+  const [reviewDue, setReviewDue] = useState(4);
 
   function selectTab(next: Tab) {
     setTab(next);
     setMobileMenu(false);
+  }
+
+  function startLesson(lesson: Lesson) {
+    setTrainingPuzzle({
+      title: lesson.title,
+      category: lesson.category,
+      fen: lesson.fen,
+      goal: lesson.copy,
+      hint: lesson.explanation,
+      expected: lesson.move,
+      success: lesson.explanation
+    });
+    setTab("train");
+  }
+
+  function completeReview() {
+    setReviewDue(current => Math.max(0, current - 1));
+    setWeeklyAccuracy(current => Math.min(99, current + 1));
   }
 
   return (
@@ -43,10 +198,16 @@ function App() {
             <div className="brand-kicker">COACH-FIRST CHESS TRAINING</div>
           </div>
         </div>
+
         <div className="topbar-meta">
           <div className="streak"><span className="streak-dot" />7 day streak</div>
-          <button className="icon-button" aria-label="Settings"><Settings size={17} /></button>
-          <button className="profile-button"><span className="avatar">B</span><span className="profile-copy"><b>Player</b><small>1765</small></span></button>
+          <button className="icon-button" aria-label="Settings" onClick={() => setSettingsOpen(true)}>
+            <Settings size={17} />
+          </button>
+          <button className="profile-button" onClick={() => setHelpOpen(true)}>
+            <span className="avatar">B</span>
+            <span className="profile-copy"><b>Player</b><small>1765</small></span>
+          </button>
           <button className="menu-button" aria-label="Menu" onClick={() => setMobileMenu(v => !v)}>
             {mobileMenu ? <X size={19} /> : <Menu size={19} />}
           </button>
@@ -69,28 +230,34 @@ function App() {
             <div className="sidebar-label">CHESS TUTOR</div>
             {tabs.map(({ id, label, icon: Icon }) => (
               <button key={id} className={tab === id ? "sidebar-link active" : "sidebar-link"} onClick={() => selectTab(id)}>
-                <Icon size={18} /><span>{label}</span>{id === "review" && <em>4</em>}
+                <Icon size={18} /><span>{label}</span>{id === "review" && <em>{reviewDue}</em>}
               </button>
             ))}
           </div>
+
           <div className="sidebar-section secondary">
             <div className="sidebar-label">YOUR WORK</div>
-            <button className="sidebar-link"><Brain size={18} /><span>Mistake patterns</span><em>8</em></button>
-            <button className="sidebar-link"><Target size={18} /><span>Review queue</span><em>4</em></button>
+            <button className="sidebar-link" onClick={() => selectTab("review")}>
+              <Brain size={18} /><span>Mistake patterns</span><em>8</em>
+            </button>
+            <button className="sidebar-link" onClick={() => selectTab("review")}>
+              <Target size={18} /><span>Review queue</span><em>{reviewDue}</em>
+            </button>
           </div>
+
           <div className="sidebar-footer">
             <div className="sidebar-footer-card">
               <span className="mini-icon"><Trophy size={15} /></span>
-              <div><b>82%</b><small>weekly accuracy</small></div>
+              <div><b>{weeklyAccuracy}%</b><small>weekly accuracy</small></div>
             </div>
           </div>
         </aside>
 
         <main className="main-content">
-          {tab === "train" && <TrainView />}
-          {tab === "learn" && <LearnView />}
+          {tab === "train" && <TrainView puzzle={trainingPuzzle} onHelp={() => setHelpOpen(true)} />}
+          {tab === "learn" && <LearnView onPractice={startLesson} />}
           {tab === "play" && <PlayView />}
-          {tab === "review" && <ReviewView />}
+          {tab === "review" && <ReviewView due={reviewDue} onComplete={completeReview} />}
         </main>
       </div>
 
@@ -101,132 +268,592 @@ function App() {
           </button>
         ))}
       </nav>
+
+      {settingsOpen && <Modal title="Training settings" onClose={() => setSettingsOpen(false)}>
+        <div className="settings-grid">
+          <SettingRow label="Coach explanations" value="Detailed" />
+          <SettingRow label="Move confirmation" value="Off" />
+          <SettingRow label="Show legal moves" value="On" />
+          <SettingRow label="Sound cues" value="On" />
+        </div>
+        <p className="modal-note">These are local UI settings for now. The shared Supabase preferences layer is ready to be connected.</p>
+      </Modal>}
+
+      {helpOpen && <Modal title="How Chess Tutor works" onClose={() => setHelpOpen(false)}>
+        <div className="help-list">
+          <div><span>01</span><b>Find</b><p>Start with checks, captures and threats before searching for a clever move.</p></div>
+          <div><span>02</span><b>Explain</b><p>Every training move is paired with a concrete chess reason you can verify on the board.</p></div>
+          <div><span>03</span><b>Retry</b><p>Misses become review positions instead of disappearing from your training history.</p></div>
+        </div>
+      </Modal>}
     </div>
   );
 }
 
-function TrainView() {
-  const [boardFlipped, setBoardFlipped] = useState(false);
-  const [chess, setChess] = useState(() => new Chess());
+function TrainView({ puzzle, onHelp }: { puzzle: Puzzle; onHelp: () => void }) {
+  const [game, setGame] = useState(() => new Chess(puzzle.fen));
   const [selected, setSelected] = useState<Square | null>(null);
-  const [message, setMessage] = useState("Every mistake is backed by a concrete, checkable fact.");
-  const displayFiles = boardFlipped ? [...files].reverse() : files;
-  const displayRanks = boardFlipped ? [...ranks].reverse() : ranks;
+  const [orientation, setOrientation] = useState<Orientation>("w");
+  const [message, setMessage] = useState(puzzle.goal);
+  const [hintLevel, setHintLevel] = useState(0);
+  const [mistake, setMistake] = useState(false);
+  const [solved, setSolved] = useState(false);
+  const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
 
-  const legalTargets = useMemo(() => selected
-    ? new Set(chess.moves({ square: selected, verbose: true }).map(move => move.to))
-    : new Set<string>(), [chess, selected]);
+  useEffect(() => {
+    setGame(new Chess(puzzle.fen));
+    setSelected(null);
+    setHintLevel(0);
+    setMistake(false);
+    setSolved(false);
+    setLastMove(null);
+    setMessage(puzzle.goal);
+  }, [puzzle]);
+
+  const legalTargets = useMemo(
+    () => selected
+      ? new Set(game.moves({ square: selected, verbose: true }).map(move => move.to))
+      : new Set<string>(),
+    [game, selected]
+  );
 
   function clickSquare(square: Square) {
+    if (solved || mistake || game.turn() !== "w") return;
+
     if (selected && legalTargets.has(square)) {
-      const next = new Chess(chess.fen());
-      next.move({ from: selected, to: square, promotion: "q" });
-      setChess(next);
+      const next = new Chess(game.fen());
+      const move = next.move({ from: selected, to: square, promotion: "q" });
+      if (!move) return;
+
+      const isCorrect = move.from + move.to === puzzle.expected;
+      setGame(next);
+      setLastMove({ from: move.from, to: move.to });
       setSelected(null);
-      setMessage(next.isCheck() ? "Check delivered. Calculate the opponent's forcing replies." : "Good. Name the threat you created before moving again.");
+
+      if (isCorrect) {
+        setSolved(true);
+        setMessage(puzzle.success);
+      } else {
+        setMistake(true);
+        setMessage("That move is legal, but it misses the training objective. Look at the coach note, then retry.");
+      }
       return;
     }
-    const piece = chess.get(square);
-    setSelected(piece && piece.color === chess.turn() ? square : null);
+
+    const piece = game.get(square);
+    setSelected(piece?.color === game.turn() ? square : null);
   }
 
   function reset() {
-    setChess(new Chess());
+    setGame(new Chess(puzzle.fen));
     setSelected(null);
-    setMessage("Fresh position. Scan checks, captures and threats first.");
+    setHintLevel(0);
+    setMistake(false);
+    setSolved(false);
+    setLastMove(null);
+    setMessage(puzzle.goal);
+  }
+
+  function hint() {
+    const next = hintLevel + 1;
+    setHintLevel(next);
+    if (next === 1) setMessage(puzzle.hint);
+    if (next === 2) setMessage("Hint 2 · The target move starts from " + puzzle.expected.slice(0, 2) + ". Inspect its legal destinations.");
+    if (next >= 3) setMessage("Answer · " + puzzle.expected.slice(0, 2) + " → " + puzzle.expected.slice(2));
+  }
+
+  function nextDrill() {
+    const nextIndex = (trainingPositions.findIndex(p => p.title === puzzle.title) + 1) % trainingPositions.length;
+    const next = trainingPositions[nextIndex];
+    setGame(new Chess(next.fen));
+    setSelected(null);
+    setHintLevel(0);
+    setMistake(false);
+    setSolved(false);
+    setLastMove(null);
+    setMessage(next.goal);
   }
 
   return (
     <>
       <section className="hero-row">
-        <div><span className="eyebrow">TODAY'S FOCUS</span><h1>Forced mate & consequence retry</h1><p>Every mistake is backed by a concrete, checkable fact.</p></div>
-        <button className="secondary-button"><CircleHelp size={16} /> How it works</button>
+        <div>
+          <span className="eyebrow">TODAY'S FOCUS</span>
+          <h1>{puzzle.title}</h1>
+          <p>{puzzle.category} · Solve the position, then understand why it works.</p>
+        </div>
+        <button className="secondary-button" onClick={onHelp}><CircleHelp size={16} /> How it works</button>
       </section>
 
       <section className="training-grid">
         <div className="board-card">
-          <div className="board-topline"><div><span className="surface-label">COACH BOARD</span><strong>Training position</strong></div><button className="board-tool" onClick={() => setBoardFlipped(v => !v)}><ArrowLeftRight size={17} /></button></div>
-          <div className="board-wrap">
-            <div className="eval-bar"><span style={{ height: "62%" }} /><b>+0.7</b></div>
-            <div className="board">
-              {displayRanks.flatMap(rank => displayFiles.map(file => {
-                const square = (file + rank) as Square;
-                const piece = chess.get(square);
-                const light = (files.indexOf(file) + ranks.indexOf(rank)) % 2 === 0;
-                const target = legalTargets.has(square);
-                return (
-                  <button key={square} className={["square", light ? "light" : "dark", square === selected ? "selected" : ""].join(" ")} onClick={() => clickSquare(square)} aria-label={square}>
-                    {piece && <span className={piece.color === "w" ? "piece white-piece" : "piece black-piece"}>{glyph[piece.color + piece.type]}</span>}
-                    {target && <span className={piece ? "capture-ring" : "target-dot"} />}
-                  </button>
-                );
-              }))}
+          <div className="board-topline">
+            <div><span className="surface-label">COACH BOARD</span><strong>{solved ? "Solved position" : "Training position"}</strong></div>
+            <div className="board-tools">
+              <button className="board-tool" onClick={() => setOrientation(v => v === "w" ? "b" : "w")} aria-label="Flip board"><ArrowLeftRight size={17} /></button>
+              <button className="board-tool" onClick={reset} aria-label="Reset position"><RotateCcw size={16} /></button>
             </div>
           </div>
+
+          <div className="board-wrap">
+            <div className="eval-bar" aria-label="Coach evaluation">
+              <span style={{ height: solved ? "100%" : "64%" }} />
+              <b>{solved ? "M1" : "+0.7"}</b>
+            </div>
+            <ChessBoard game={game} orientation={orientation} selected={selected} targets={legalTargets} lastMove={lastMove} onSquare={clickSquare} />
+          </div>
+
           <div className="board-bottom">
             <div className="player-row"><div className="player-avatar">B</div><div><b>You</b><span>1765 · White</span></div></div>
-            <div className="move-state">{chess.history().length ? chess.history().slice(-8).join("  ") : "Your move"}</div>
-            <button className="ghost-button" onClick={reset}><RotateCcw size={15} /> Reset</button>
+            <div className="move-state">{game.history().length ? game.history().slice(-8).join("  ") : "Choose a piece to begin"}</div>
+            <button className="ghost-button" onClick={reset}><RotateCcw size={15} /> Retry</button>
           </div>
         </div>
 
         <aside className="coach-panel">
-          <div className="coach-card primary"><div className="coach-icon"><Lightbulb size={18} /></div><div><span className="surface-label">COACH NOTE</span><h2>Think before you calculate</h2><p>{message}</p></div></div>
-          <div className="issue-card"><div className="issue-icon"><Gauge size={18} /></div><div className="issue-copy"><span className="surface-label">POSITION SIGNAL</span><strong>{chess.isCheck() ? "Check delivered" : "Scan forcing moves"}</strong><span>{chess.history().length ? "Position updated locally" : "No mistake recorded yet"}</span></div><button className="icon-button dark"><ChevronRight size={16} /></button></div>
-          <div className="coach-actions"><button className="brass-button" onClick={() => setMessage("Hint 1 · Ask what your opponent is threatening before searching for your own move.")}><Lightbulb size={16} /> Give me a hint</button><button className="secondary-button full"><Play size={16} /> Start focused drill</button></div>
-          <div className="progress-card"><div className="progress-head"><span>SESSION</span><strong>3 of 8 positions</strong></div><div className="progress-track"><span style={{ width:"38%" }} /></div><div className="progress-foot"><span>Today</span><b>14 min</b></div></div>
+          <div className={solved ? "coach-card primary solved" : mistake ? "coach-card primary warning" : "coach-card primary"}>
+            <div className="coach-icon">{solved ? <Shield size={18} /> : mistake ? <Zap size={18} /> : <Lightbulb size={18} />}</div>
+            <div>
+              <span className="surface-label">{solved ? "COACH FEEDBACK" : mistake ? "TRY AGAIN" : "COACH NOTE"}</span>
+              <h2>{solved ? "Concrete reason first" : mistake ? "A legal move can still be a bad move" : "Calculate with a checklist"}</h2>
+              <p>{message}</p>
+            </div>
+          </div>
+
+          <div className="issue-card">
+            <div className="issue-icon"><Gauge size={18} /></div>
+            <div className="issue-copy">
+              <span className="surface-label">POSITION SIGNAL</span>
+              <strong>{solved ? "Training point secured" : mistake ? "Mistake recorded locally" : "Scan checks, captures, threats"}</strong>
+              <span>{hintLevel ? "Hint level " + hintLevel + " / 3" : "No hint used"}</span>
+            </div>
+          </div>
+
+          <div className="coach-actions">
+            <button className="brass-button" onClick={hint} disabled={solved}><Lightbulb size={16} /> {hintLevel ? "Next hint" : "Give me a hint"}</button>
+            {mistake && <button className="secondary-button full" onClick={reset}><RotateCcw size={16} /> Retry the mistake</button>}
+            <button className="secondary-button full" onClick={nextDrill}><Play size={16} /> Next focused drill</button>
+          </div>
+
+          <div className="progress-card">
+            <div className="progress-head"><span>SESSION</span><strong>{solved ? "1 of 1 position" : mistake ? "Retry available" : "1 position active"}</strong></div>
+            <div className="progress-track"><span style={{ width: solved ? "100%" : mistake ? "55%" : "18%" }} /></div>
+            <div className="progress-foot"><span>Today</span><b>{solved ? "Complete" : "Keep thinking"}</b></div>
+          </div>
         </aside>
       </section>
     </>
   );
 }
 
-function LearnView() {
+function ChessBoard({
+  game,
+  orientation,
+  selected,
+  targets,
+  lastMove,
+  onSquare
+}: {
+  game: Chess;
+  orientation: Orientation;
+  selected: Square | null;
+  targets: Set<string>;
+  lastMove: { from: Square; to: Square } | null;
+  onSquare: (square: Square) => void;
+}) {
+  const displayFiles = orientation === "w" ? [...files] : [...files].reverse();
+  const displayRanks = orientation === "w" ? [...ranks] : [...ranks].reverse();
+
+  return (
+    <div className="board-shell">
+      <div className="board">
+        {displayRanks.flatMap(rank => displayFiles.map(file => {
+          const square = (file + rank) as Square;
+          const piece = game.get(square);
+          const fileIndex = files.indexOf(file);
+          const rankIndex = ranks.indexOf(rank);
+          const light = (fileIndex + rankIndex) % 2 === 0;
+          const isLastMove = lastMove?.from === square || lastMove?.to === square;
+          const target = targets.has(square);
+          const showFile = rank === (orientation === "w" ? 1 : 8);
+          const showRank = file === (orientation === "w" ? "a" : "h");
+
+          return (
+            <button
+              key={square}
+              className={[
+                "square",
+                light ? "light" : "dark",
+                square === selected ? "selected" : "",
+                isLastMove ? "last-move" : ""
+              ].join(" ")}
+              onClick={() => onSquare(square)}
+              aria-label={square}
+            >
+              <span className="square-shine" />
+              {showFile && <span className="coord file-coord">{file}</span>}
+              {showRank && <span className="coord rank-coord">{rank}</span>}
+              {piece && <ChessPiece color={piece.color} type={piece.type} />}
+              {target && <span className={piece ? "capture-ring" : "target-dot"} />}
+            </button>
+          );
+        }))}
+      </div>
+      <div className="board-caption"><span>{orientation === "w" ? "White" : "Black"} perspective</span><span>Click a piece, then a highlighted square</span></div>
+    </div>
+  );
+}
+
+function ChessPiece({ color, type }: { color: "w" | "b"; type: string }) {
+  const light = color === "w";
+  const fill = light ? "#F7F1E5" : "#20272D";
+  const stroke = light ? "#2C343B" : "#11161A";
+
+  return (
+    <svg className="svg-piece" viewBox="0 0 64 64" aria-hidden="true">
+      {type === "p" && <>
+        <circle cx="32" cy="17" r="7" fill={fill} stroke={stroke} strokeWidth="2" />
+        <path d="M21 52h22l-4-7c-1-2-3-3-3-7v-2c4-2 6-6 6-11 0-2-1-3-2-5H24c-1 2-2 3-2 5 0 5 2 9 6 11v2c0 4-2 5-3 7l-4 7z" fill={fill} stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
+        <path d="M18 53h28" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+      </>}
+      {type === "r" && <>
+        <path d="M18 15h7v6h5v-6h4v6h5v-6h7v14H44l-2 17H22l-2-17h-2z" fill={fill} stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
+        <path d="M18 47h28v6H18z" fill={fill} stroke={stroke} strokeWidth="2" />
+      </>}
+      {type === "n" && <>
+        <path d="M21 50h25l-3-7c-3-6-7-9-11-12 3-4 7-8 6-15l-5-7-5 4-6-2 2 8-5 5 4 7c-2 5-4 9-5 19z" fill={fill} stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
+        <circle cx="35" cy="15" r="1.8" fill={stroke} stroke="none" />
+        <path d="M18 53h29" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+      </>}
+      {type === "b" && <>
+        <circle cx="32" cy="15" r="7" fill={fill} stroke={stroke} strokeWidth="2" />
+        <path d="M32 15l-4 5 7 2 2-5z" fill={stroke} stroke="none" />
+        <path d="M25 23c0 7 2 10 6 13-1 4-3 6-6 10h14c-3-4-5-6-6-10 4-3 6-6 6-13z" fill={fill} stroke={stroke} strokeWidth="2" />
+        <path d="M18 53h28" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+      </>}
+      {type === "q" && <>
+        <circle cx="20" cy="15" r="4" fill={fill} stroke={stroke} strokeWidth="2" />
+        <circle cx="32" cy="11" r="4" fill={fill} stroke={stroke} strokeWidth="2" />
+        <circle cx="44" cy="15" r="4" fill={fill} stroke={stroke} strokeWidth="2" />
+        <path d="M18 17l4 27h20l4-27-9 7-5-10-5 10z" fill={fill} stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
+        <path d="M18 53h28" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+      </>}
+      {type === "k" && <>
+        <path d="M27 10h10v6h6v8h-6v7c4 3 6 8 7 13H20c1-5 3-10 7-13v-7h-6v-8h6z" fill={fill} stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
+        <path d="M32 3v13M26 9h12" stroke={stroke} strokeWidth="3" strokeLinecap="round" />
+        <path d="M18 53h28" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+      </>}
+    </svg>
+  );
+}
+
+function LearnView({ onPractice }: { onPractice: (lesson: Lesson) => void }) {
   const [filter, setFilter] = useState("All");
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const filters = ["All", "Openings", "Tactics", "Middlegame", "Endgame", "Blunder Patterns"];
-  const lessons = [
-    { title: "The Golden Rules of Opening", subtitle: "Center Control & Rapid Development", category: "Openings", copy: "Control the center, develop pieces, and castle early." },
-    { title: "The Italian Game", subtitle: "1. e4 e5 2. Nf3 Nc6 3. Bc4", category: "Openings", copy: "Target f7 and prepare the central c3–d4 break." },
-    { title: "The Royal Knight Fork", subtitle: "Simultaneous Multi-Square Strikes", category: "Tactics", copy: "Find the knight move that attacks two critical targets." },
-    { title: "Outposts & Knight Strongholds", subtitle: "Dominating the 5th and 6th Ranks", category: "Middlegame", copy: "Occupy pawn-proof squares and support your outpost." },
-    { title: "The Opposition & Key Squares", subtitle: "The Universal King & Pawn Blueprint", category: "Endgame", copy: "Use king opposition to force the opponent to yield ground." },
-    { title: "Missed Mate in 1", subtitle: "Decisive Tactical Blindness", category: "Blunder Patterns", copy: "Train the habit of scanning every legal check before moving." }
-  ].filter(item => filter === "All" || item.category === filter);
+  const visibleLessons = lessons.filter(item => filter === "All" || item.category === filter);
 
   return (
     <>
-      <section className="hero-row"><div><span className="eyebrow">LEARN</span><h1>Build chess knowledge you can actually use</h1><p>Lessons lead directly back into practice, just like the foundation branch: learn a concept, practise it on the board, then review the mistake.</p></div><button className="secondary-button"><BookOpen size={16} /> Curriculum</button></section>
-      <div className="filter-row">{filters.map(f => <button key={f} className={filter===f ? "filter-chip active" : "filter-chip"} onClick={() => setFilter(f)}>{f}</button>)}</div>
-      <section className="lesson-grid">{lessons.map((lesson, i) => <article className="lesson-card" key={lesson.title}><div className="lesson-number">0{i+1}</div><span className="rank-pill">{lesson.category}</span><h3>{lesson.title}</h3><div className="mono lesson-subtitle">{lesson.subtitle}</div><p>{lesson.copy}</p><button className="text-action">Practise this <ChevronRight size={14} /></button></article>)}</section>
-      <section className="repertoire-strip"><div><span className="eyebrow">OPENING COURSES</span><h2>Repertoire in progress</h2></div><div className="repertoire-pills">{openingCourses.slice(0,4).map(c => <span key={c.name} className="repertoire-pill">{c.name}<b>{c.progress}%</b></span>)}</div></section>
+      <section className="hero-row">
+        <div><span className="eyebrow">LEARN</span><h1>Build chess knowledge you can actually use</h1><p>Learn a concept, see the position, then move it straight into your training queue.</p></div>
+        <button className="secondary-button" onClick={() => setFilter("Openings")}><BookOpen size={16} /> Curriculum</button>
+      </section>
+
+      <div className="filter-row">{filters.map(f => <button key={f} className={filter === f ? "filter-chip active" : "filter-chip"} onClick={() => setFilter(f)}>{f}</button>)}</div>
+
+      <section className="lesson-grid">
+        {visibleLessons.map((lesson, i) => (
+          <article className="lesson-card" key={lesson.title}>
+            <div className="lesson-number">{String(i + 1).padStart(2, "0")}</div>
+            <span className="rank-pill">{lesson.category}</span>
+            <h3>{lesson.title}</h3>
+            <div className="mono lesson-subtitle">{lesson.subtitle}</div>
+            <p>{lesson.copy}</p>
+            <div className="lesson-actions">
+              <button className="text-action" onClick={() => setSelectedLesson(lesson)}>Read lesson <ChevronRight size={14} /></button>
+              <button className="text-action secondary-action" onClick={() => onPractice(lesson)}>Practise <Play size={13} /></button>
+            </div>
+          </article>
+        ))}
+      </section>
+
+      <section className="repertoire-strip">
+        <div><span className="eyebrow">OPENING COURSES</span><h2>Repertoire in progress</h2><p>Course progress is seeded locally until the shared backend is connected.</p></div>
+        <div className="repertoire-pills">{openingCourses.slice(0, 4).map(c => <button key={c.name} className="repertoire-pill" onClick={() => setFilter("Openings")}>{c.name}<b>{c.progress}%</b></button>)}</div>
+      </section>
+
+      {selectedLesson && <Modal title={selectedLesson.title} onClose={() => setSelectedLesson(null)}>
+        <div className="lesson-modal">
+          <div className="lesson-modal-meta"><span className="rank-pill">{selectedLesson.category}</span><span className="mono">{selectedLesson.subtitle}</span></div>
+          <p>{selectedLesson.copy}</p>
+          <div className="lesson-why"><span className="surface-label">WHY IT MATTERS</span><p>{selectedLesson.explanation}</p></div>
+          <button className="brass-button" onClick={() => { onPractice(selectedLesson); setSelectedLesson(null); }}><Play size={16} /> Train this position</button>
+        </div>
+      </Modal>}
     </>
   );
 }
 
 function PlayView() {
+  const [game, setGame] = useState(() => new Chess());
+  const [orientation, setOrientation] = useState<Orientation>("w");
+  const [selected, setSelected] = useState<Square | null>(null);
+  const [started, setStarted] = useState(false);
+  const [botName, setBotName] = useState("Wayne");
+  const [botElo, setBotElo] = useState(600);
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [status, setStatus] = useState("Choose an opponent and start a game.");
+  const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
+
+  const legalTargets = useMemo(
+    () => selected
+      ? new Set(game.moves({ square: selected, verbose: true }).map(move => move.to))
+      : new Set<string>(),
+    [game, selected]
+  );
+
+  useEffect(() => {
+    if (!started || game.turn() !== "b" || game.isGameOver()) return;
+
+    const timer = window.setTimeout(() => {
+      const next = new Chess(game.fen());
+      const moves = next.moves({ verbose: true });
+      const ordered = [...moves].sort((a, b) => botScore(b) - botScore(a));
+      const pick = ordered[0];
+      if (!pick) return;
+      const played = next.move({ from: pick.from, to: pick.to, promotion: pick.promotion || "q" });
+      if (!played) return;
+      setGame(next);
+      setLastMove({ from: played.from, to: played.to });
+      setSelected(null);
+      setStatus(next.isCheckmate() ? "Checkmate. Game finished." : next.isCheck() ? "Wayne found check. Your turn." : "Your turn.");
+    }, botElo >= 1400 ? 550 : botElo >= 1000 ? 400 : 280);
+
+    return () => window.clearTimeout(timer);
+  }, [started, game, botElo]);
+
+  function startGame() {
+    setGame(new Chess());
+    setSelected(null);
+    setLastMove(null);
+    setStarted(true);
+    setStatus("Your turn. Build a position before hunting tactics.");
+  }
+
+  function clickSquare(square: Square) {
+    if (!started || game.turn() !== "w" || game.isGameOver()) return;
+
+    if (selected && legalTargets.has(square)) {
+      const next = new Chess(game.fen());
+      const move = next.move({ from: selected, to: square, promotion: "q" });
+      if (!move) return;
+      setGame(next);
+      setSelected(null);
+      setLastMove({ from: move.from, to: move.to });
+      setStatus(next.isCheckmate() ? "Checkmate. Game finished." : next.isCheck() ? "Check. Wayne is responding." : "Wayne is thinking.");
+      return;
+    }
+
+    const piece = game.get(square);
+    setSelected(piece?.color === game.turn() ? square : null);
+  }
+
   return (
     <>
-      <section className="hero-row"><div><span className="eyebrow">PLAY</span><h1>Play with a purpose</h1><p>Keep the arena focused on practice: choose an opponent, play the position, and turn important moments into training material.</p></div><button className="brass-button"><Play size={16} /> New game</button></section>
-      <div className="play-grid">
-        <article className="arena-card"><div className="arena-bot"><div className="bot-avatar">W</div><div><span className="surface-label">CURRENT OPPONENT</span><h2>Wayne <small>600 Elo</small></h2><p>Casual · tuned below your current rating</p></div></div><div className="arena-buttons"><button className="brass-button">Play white</button><button className="secondary-button">Choose opponent</button></div></article>
-        <article className="recent-card"><div className="card-head"><div><span className="surface-label">RECENT GAMES</span><h3>Past games</h3></div><History size={16} /></div>{pastGames.map(game => <div className="game-row" key={game.opponent + game.date}><span className="result-badge">{game.result}</span><div className="game-opponent"><b>{game.opponent}</b><span>{game.rating} · {game.opening}</span></div><span className="mono">{game.moves}</span><span className="date-label">{game.date}</span></div>)}</article>
+      <section className="hero-row">
+        <div><span className="eyebrow">PLAY</span><h1>Play with a purpose</h1><p>This is a local training game: you play White, Wayne replies automatically, and the board follows real chess rules.</p></div>
+        <button className="brass-button" onClick={startGame}><Play size={16} /> {started ? "New game" : "Start game"}</button>
+      </section>
+
+      <div className="play-workspace">
+        {started ? (
+          <div className="game-card">
+            <div className="game-card-head">
+              <div><span className="surface-label">LIVE GAME</span><h2>You vs {botName}</h2><p>{botElo} Elo · local bot</p></div>
+              <div className="board-tools"><button className="board-tool" onClick={() => setOrientation(v => v === "w" ? "b" : "w")}><ArrowLeftRight size={17} /></button><button className="board-tool" onClick={startGame}><RotateCcw size={16} /></button></div>
+            </div>
+            <div className="board-wrap centered-board"><ChessBoard game={game} orientation={orientation} selected={selected} targets={legalTargets} lastMove={lastMove} onSquare={clickSquare} /></div>
+            <div className="game-status"><span className={game.turn() === "w" ? "status-dot active" : "status-dot"} /><b>{status}</b><span className="mono">{game.history().length} ply</span></div>
+          </div>
+        ) : (
+          <article className="arena-card large-arena">
+            <div className="arena-bot"><div className="bot-avatar">W</div><div><span className="surface-label">CURRENT OPPONENT</span><h2>{botName} <small>{botElo} Elo</small></h2><p>Local training bot · no network service required</p></div></div>
+            <div className="arena-copy"><h3>Start with a real position</h3><p>The board, legal moves, captures, checks and bot replies are all handled in the browser.</p></div>
+            <div className="arena-buttons"><button className="brass-button" onClick={startGame}>Play white</button><button className="secondary-button" onClick={() => setChooserOpen(true)}>Choose opponent</button></div>
+          </article>
+        )}
+
+        <article className="recent-card">
+          <div className="card-head"><div><span className="surface-label">RECENT GAMES</span><h3>Past games</h3></div><History size={16} /></div>
+          {pastGames.map(gameRow => (
+            <button className="game-row game-row-button" key={gameRow.opponent + gameRow.date} onClick={startGame}>
+              <span className="result-badge">{gameRow.result}</span>
+              <div className="game-opponent"><b>{gameRow.opponent}</b><span>{gameRow.rating} · {gameRow.opening}</span></div>
+              <span className="mono">{gameRow.moves} moves</span>
+              <span className="date-label">{gameRow.date}</span>
+            </button>
+          ))}
+        </article>
       </div>
+
+      {chooserOpen && <Modal title="Choose opponent" onClose={() => setChooserOpen(false)}>
+        <div className="opponent-grid">
+          {[["Wayne","600","Casual"],["Coach Bot","1000","Developing"],["Training Bot","1400","Calculation"]].map(([name, elo, desc]) => (
+            <button key={name} className={botName === name ? "opponent-option active" : "opponent-option"} onClick={() => { setBotName(name); setBotElo(Number(elo)); setChooserOpen(false); setStarted(false); setStatus("Choose an opponent and start a game."); }}>
+              <span className="bot-avatar">{name[0]}</span>
+              <span><b>{name}</b><small>{elo} Elo · {desc}</small></span>
+              <ChevronRight size={15} />
+            </button>
+          ))}
+        </div>
+      </Modal>}
     </>
   );
 }
 
-function ReviewView() {
-  const items = [
-    { title: "Missed Mate in 1", stage: "Due today", detail: "Recall the decisive move without the hint." },
-    { title: "Hanging Major Pieces", stage: "Due today", detail: "Count attackers and defenders before you commit." },
-    { title: "Back-Rank Checkmate & Luft", stage: "1 day", detail: "Spot the escape-square failure before the rook arrives." },
-    { title: "Royal Knight Fork", stage: "3 days", detail: "Find king + rook forks from the center." }
-  ];
+function botScore(move: { captured?: string; san: string; to: string }) {
+  let score = 0;
+  if (move.captured) score += 40;
+  if (move.san.includes("#")) score += 1000;
+  if (move.san.includes("+")) score += 30;
+  if (["d4", "e4", "d5", "e5"].includes(move.to)) score += 8;
+  return score;
+}
+
+function ReviewView({ due, onComplete }: { due: number; onComplete: () => void }) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
   return (
     <>
-      <section className="hero-row"><div><span className="eyebrow">REVIEW</span><h1>Turn yesterday's mistakes into today's skill</h1><p>The review queue follows the foundation scheduler: successful recalls move forward through spaced intervals; failures return immediately.</p></div><div className="metric-chip"><Target size={14} /> 4 due</div></section>
-      <section className="review-layout"><div className="review-summary"><span className="surface-label">TODAY</span><strong>4 positions</strong><p>1 day · 3 days · 7 days · 14 days · 30 days</p><div className="review-progress"><span style={{ width:"35%" }} /></div><button className="brass-button"><Play size={16} /> Start review</button></div><div className="review-list">{items.map((item, i) => <article className="review-item" key={item.title}><span className="review-index">{i+1}</span><div><b>{item.title}</b><p>{item.detail}</p></div><span className="review-stage">{item.stage}</span><ChevronRight size={15} /></article>)}</div></section>
+      <section className="hero-row">
+        <div><span className="eyebrow">REVIEW</span><h1>Turn yesterday's mistakes into today's skill</h1><p>Recall the reason, make the move, then schedule the position forward.</p></div>
+        <div className="metric-chip"><Target size={14} /> {due} due</div>
+      </section>
+
+      <section className="review-layout">
+        <div className="review-summary">
+          <span className="surface-label">TODAY</span>
+          <strong>{due} positions</strong>
+          <p>1 day · 3 days · 7 days · 14 days · 30 days</p>
+          <div className="review-progress"><span style={{ width: String(Math.max(0, 100 - due * 12)) + "%" }} /></div>
+          <button className="brass-button" onClick={() => setActiveIndex(0)} disabled={due === 0}><Play size={16} /> {due === 0 ? "Queue complete" : "Start review"}</button>
+        </div>
+
+        <div className="review-list">
+          {reviewPositions.map((item, i) => (
+            <button className="review-item review-item-button" key={item.title} onClick={() => setActiveIndex(i)}>
+              <span className="review-index">{i + 1}</span>
+              <div><b>{item.title}</b><p>{item.goal}</p></div>
+              <span className="review-stage">{i < due ? "Due today" : String(i + 1) + " days"}</span>
+              <ChevronRight size={15} />
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {activeIndex !== null && <ReviewSession initialIndex={activeIndex} onComplete={onComplete} onClose={() => setActiveIndex(null)} />}
     </>
+  );
+}
+
+function ReviewSession({
+  initialIndex,
+  onComplete,
+  onClose
+}: {
+  initialIndex: number;
+  onComplete: () => void;
+  onClose: () => void;
+}) {
+  const [index, setIndex] = useState(initialIndex);
+  const [game, setGame] = useState(() => new Chess(reviewPositions[initialIndex].fen));
+  const [selected, setSelected] = useState<Square | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  const [result, setResult] = useState<"idle" | "correct" | "wrong">("idle");
+  const puzzle = reviewPositions[index];
+
+  const targets = useMemo(
+    () => selected
+      ? new Set(game.moves({ square: selected, verbose: true }).map(move => move.to))
+      : new Set<string>(),
+    [game, selected]
+  );
+
+  function resetSession() {
+    setGame(new Chess(puzzle.fen));
+    setSelected(null);
+    setRevealed(false);
+    setResult("idle");
+  }
+
+  function choose(square: Square) {
+    if (result !== "idle") return;
+    if (selected && targets.has(square)) {
+      const next = new Chess(game.fen());
+      const move = next.move({ from: selected, to: square, promotion: "q" });
+      if (!move) return;
+      setGame(next);
+      setSelected(null);
+      setResult(move.from + move.to === puzzle.expected ? "correct" : "wrong");
+      return;
+    }
+    const piece = game.get(square);
+    setSelected(piece?.color === game.turn() ? square : null);
+  }
+
+  function nextCard() {
+    onComplete();
+    if (index >= reviewPositions.length - 1) {
+      onClose();
+      return;
+    }
+    const next = index + 1;
+    setIndex(next);
+    setGame(new Chess(reviewPositions[next].fen));
+    setSelected(null);
+    setRevealed(false);
+    setResult("idle");
+  }
+
+  return (
+    <div className="session-overlay">
+      <div className="session-panel">
+        <div className="session-head">
+          <div><span className="eyebrow">REVIEW {index + 1} / {reviewPositions.length}</span><h2>{puzzle.title}</h2><p>{puzzle.goal}</p></div>
+          <button className="icon-button" onClick={onClose}><X size={17} /></button>
+        </div>
+        <div className="session-grid">
+          <div className="board-wrap"><ChessBoard game={game} orientation="w" selected={selected} targets={targets} lastMove={null} onSquare={choose} /></div>
+          <div className="session-coach">
+            <div className={result === "correct" ? "coach-card solved" : result === "wrong" ? "coach-card warning" : "coach-card"}>
+              <span className="surface-label">{result === "correct" ? "CORRECT" : result === "wrong" ? "NOT YET" : "RECALL"}</span>
+              <h3>{result === "correct" ? "The reason is secured." : result === "wrong" ? "Reset and look again." : "Can you find the move?"}</h3>
+              <p>{result === "correct" ? puzzle.success : result === "wrong" ? "The move is legal, but it does not answer the training objective." : "Use the board first. The reveal is there to support recall, not replace it."}</p>
+            </div>
+            {!revealed && result === "idle" && <button className="secondary-button full" onClick={() => setRevealed(true)}><Lightbulb size={16} /> Reveal hint</button>}
+            {revealed && result === "idle" && <div className="revealed-answer"><span className="surface-label">HINT</span><b>{puzzle.hint}</b><small>Target move: {puzzle.expected.slice(0, 2)} → {puzzle.expected.slice(2)}</small></div>}
+            {result === "wrong" && <button className="secondary-button full" onClick={resetSession}><RotateCcw size={16} /> Retry position</button>}
+            {result === "correct" && <button className="brass-button full" onClick={nextCard}><ChevronRight size={16} /> Next review</button>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingRow({ label, value }: { label: string; value: string }) {
+  return <div className="setting-row"><span>{label}</span><b>{value}</b></div>;
+}
+
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="modal-overlay" onMouseDown={onClose}>
+      <div className="modal-card" onMouseDown={e => e.stopPropagation()}>
+        <div className="modal-head"><div><span className="surface-label">CHESS TUTOR</span><h2>{title}</h2></div><button className="icon-button" onClick={onClose}><X size={17} /></button></div>
+        {children}
+      </div>
+    </div>
   );
 }
 
