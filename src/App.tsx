@@ -266,12 +266,18 @@ function App() {
   }
 
   function completeReview(puzzle: Puzzle, correct: boolean) {
-    if (!correct) return;
-    setProgress(current => ({
-      ...touchActivity(current),
-      reviewDue: Math.max(0, current.reviewDue - 1),
-      weeklyAccuracy: Math.min(99, current.weeklyAccuracy + 1)
-    }));
+    setProgress(current => correct
+      ? {
+          ...touchActivity(current),
+          reviewDue: Math.max(0, current.reviewDue - 1),
+          weeklyAccuracy: Math.min(99, current.weeklyAccuracy + 1)
+        }
+      : {
+          ...touchActivity(current),
+          recordedMistakes: current.recordedMistakes + 1,
+          reviewDue: Math.min(12, current.reviewDue + 1)
+        }
+    );
     if (authUser && cloudSyncedFor === authUser.id) {
       void recordReviewAttempt({ userId: authUser.id, puzzleKey: puzzle.title, correct });
     }
@@ -412,6 +418,7 @@ function TrainView({
   const [mistake, setMistake] = useState(false);
   const [solved, setSolved] = useState(false);
   const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
+  const [recordedGame, setRecordedGame] = useState(false);
 
   useEffect(() => {
     setGame(new Chess(puzzle.fen));
@@ -744,16 +751,37 @@ function PlayView() {
       setGame(next);
       setLastMove({ from: played.from, to: played.to });
       setSelected(null);
-      setStatus(next.isCheckmate() ? "Checkmate. Game finished." : next.isCheck() ? "Wayne found check. Your turn." : "Your turn.");
+      setStatus(next.isCheckmate() ? "Checkmate. Game finished." : next.isCheck() ? botName + " found check. Your turn." : "Your turn.");
     }, botElo >= 1400 ? 550 : botElo >= 1000 ? 400 : 280);
 
     return () => window.clearTimeout(timer);
   }, [started, game, botElo]);
 
+  useEffect(() => {
+    if (!started || !game.isGameOver() || recordedGame) return;
+
+    setRecordedGame(true);
+    const result = game.isCheckmate()
+      ? (game.turn() === "b" ? "win" : "loss")
+      : "draw";
+
+    if (authUser && cloudSyncedFor === authUser.id) {
+      void recordGame({
+        userId: authUser.id,
+        opponentName: botName,
+        opponentElo: botElo,
+        playerColor: "white",
+        result,
+        pgn: game.pgn()
+      });
+    }
+  }, [started, game, recordedGame, authUser, cloudSyncedFor, botName, botElo]);
+
   function startGame() {
     setGame(new Chess());
     setSelected(null);
     setLastMove(null);
+    setRecordedGame(false);
     setStarted(true);
     setStatus("Your turn. Build a position before hunting tactics.");
   }
