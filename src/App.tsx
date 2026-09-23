@@ -203,10 +203,6 @@ function App() {
     }
   }, [progress, authUser, cloudSyncedFor]);
 
-  useEffect(() => {
-    saveProgress(progress);
-  }, [progress]);
-
   function selectTab(next: Tab) {
     setTab(next);
     setMobileMenu(false);
