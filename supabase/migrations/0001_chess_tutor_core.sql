@@ -18,9 +18,13 @@ create table if not exists public.user_progress (
   streak integer not null default 0 check (streak >= 0),
   solved_positions integer not null default 0 check (solved_positions >= 0),
   recorded_mistakes integer not null default 0 check (recorded_mistakes >= 0),
+  completed_lessons text[] not null default '{}',
   last_active_date date,
   updated_at timestamptz not null default now()
 );
+
+alter table if exists public.user_progress
+  add column if not exists completed_lessons text[] not null default '{}';
 
 create table if not exists public.lesson_progress (
   user_id uuid not null references auth.users(id) on delete cascade,
