@@ -21,6 +21,7 @@ import {
   Zap
 } from "lucide-react";
 import { openingCourses, pastGames } from "./data/content";
+import { defaultProgress, loadProgress, saveProgress, touchActivity, TutorProgress } from "./lib/storage";
 
 type Tab = "train" | "learn" | "play" | "review";
 type Orientation = "w" | "b";
@@ -162,8 +163,11 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [trainingPuzzle, setTrainingPuzzle] = useState<Puzzle>(trainingPositions[0]);
-  const [weeklyAccuracy, setWeeklyAccuracy] = useState(82);
-  const [reviewDue, setReviewDue] = useState(4);
+  const [progress, setProgress] = useState<TutorProgress>(() => loadProgress());
+
+  useEffect(() => {
+    saveProgress(progress);
+  }, [progress]);
 
   function selectTab(next: Tab) {
     setTab(next);
@@ -183,9 +187,31 @@ function App() {
     setTab("train");
   }
 
+  function recordTrainingResult(correct: boolean, lessonTitle?: string) {
+    setProgress(current => {
+      const active = touchActivity(current);
+      const next: TutorProgress = {
+        ...active,
+        weeklyAccuracy: correct
+          ? Math.min(99, active.weeklyAccuracy + 1)
+          : Math.max(0, active.weeklyAccuracy - 1),
+        reviewDue: correct ? active.reviewDue : Math.min(12, active.reviewDue + 1),
+        solvedPositions: active.solvedPositions + (correct ? 1 : 0),
+        recordedMistakes: active.recordedMistakes + (correct ? 0 : 1),
+        completedLessons: lessonTitle && correct && !active.completedLessons.includes(lessonTitle)
+          ? [...active.completedLessons, lessonTitle]
+          : active.completedLessons
+      };
+      return next;
+    });
+  }
+
   function completeReview() {
-    setReviewDue(current => Math.max(0, current - 1));
-    setWeeklyAccuracy(current => Math.min(99, current + 1));
+    setProgress(current => ({
+      ...touchActivity(current),
+      reviewDue: Math.max(0, current.reviewDue - 1),
+      weeklyAccuracy: Math.min(99, current.weeklyAccuracy + 1)
+    }));
   }
 
   return (
@@ -200,7 +226,7 @@ function App() {
         </div>
 
         <div className="topbar-meta">
-          <div className="streak"><span className="streak-dot" />7 day streak</div>
+          <div className="streak"><span className="streak-dot" />{progress.streak} day streak</div>
           <button className="icon-button" aria-label="Settings" onClick={() => setSettingsOpen(true)}>
             <Settings size={17} />
           </button>
@@ -230,7 +256,7 @@ function App() {
             <div className="sidebar-label">CHESS TUTOR</div>
             {tabs.map(({ id, label, icon: Icon }) => (
               <button key={id} className={tab === id ? "sidebar-link active" : "sidebar-link"} onClick={() => selectTab(id)}>
-                <Icon size={18} /><span>{label}</span>{id === "review" && <em>{reviewDue}</em>}
+                <Icon size={18} /><span>{label}</span>{id === "review" && <em>{progress.reviewDue}</em>}
               </button>
             ))}
           </div>
@@ -238,26 +264,32 @@ function App() {
           <div className="sidebar-section secondary">
             <div className="sidebar-label">YOUR WORK</div>
             <button className="sidebar-link" onClick={() => selectTab("review")}>
-              <Brain size={18} /><span>Mistake patterns</span><em>8</em>
+              <Brain size={18} /><span>Mistake patterns</span><em>{progress.recordedMistakes}</em>
             </button>
             <button className="sidebar-link" onClick={() => selectTab("review")}>
-              <Target size={18} /><span>Review queue</span><em>{reviewDue}</em>
+              <Target size={18} /><span>Review queue</span><em>{progress.reviewDue}</em>
             </button>
           </div>
 
           <div className="sidebar-footer">
             <div className="sidebar-footer-card">
               <span className="mini-icon"><Trophy size={15} /></span>
-              <div><b>{weeklyAccuracy}%</b><small>weekly accuracy</small></div>
+              <div><b>{progress.weeklyAccuracy}%</b><small>weekly accuracy</small></div>
             </div>
           </div>
         </aside>
 
         <main className="main-content">
-          {tab === "train" && <TrainView puzzle={trainingPuzzle} onHelp={() => setHelpOpen(true)} />}
+          {tab === "train" && (
+            <TrainView
+              puzzle={trainingPuzzle}
+              onHelp={() => setHelpOpen(true)}
+              onResult={(correct) => recordTrainingResult(correct, trainingPuzzle.title)}
+            />
+          )}
           {tab === "learn" && <LearnView onPractice={startLesson} />}
           {tab === "play" && <PlayView />}
-          {tab === "review" && <ReviewView due={reviewDue} onComplete={completeReview} />}
+          {tab === "review" && <ReviewView due={progress.reviewDue} onComplete={completeReview} />}
         </main>
       </div>
 
@@ -290,7 +322,15 @@ function App() {
   );
 }
 
-function TrainView({ puzzle, onHelp }: { puzzle: Puzzle; onHelp: () => void }) {
+function TrainView({
+  puzzle,
+  onHelp,
+  onResult
+}: {
+  puzzle: Puzzle;
+  onHelp: () => void;
+  onResult: (correct: boolean) => void;
+}) {
   const [game, setGame] = useState(() => new Chess(puzzle.fen));
   const [selected, setSelected] = useState<Square | null>(null);
   const [orientation, setOrientation] = useState<Orientation>("w");
@@ -333,9 +373,11 @@ function TrainView({ puzzle, onHelp }: { puzzle: Puzzle; onHelp: () => void }) {
       if (isCorrect) {
         setSolved(true);
         setMessage(puzzle.success);
+        onResult(true);
       } else {
         setMistake(true);
         setMessage("That move is legal, but it misses the training objective. Look at the coach note, then retry.");
+        onResult(false);
       }
       return;
     }
