@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { curriculumLessons, openingCourses, pastGames } from "./data/content";
 import { loadProgress, saveProgress, touchActivity, TutorProgress } from "./lib/storage";
-import { AuthUser, getAuthUser, loadCloudProgress, saveCloudProgress, signOut, subscribeToAuthChanges } from "./lib/cloud";
+import { AuthUser, getAuthUser, loadCloudProgress, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges } from "./lib/cloud";
 import { AuthModal } from "./components/AuthModal";
 
 type Tab = "train" | "learn" | "play" | "review";
@@ -234,7 +234,7 @@ function App() {
     setTab("train");
   }
 
-  function recordTrainingResult(correct: boolean, lessonTitle?: string) {
+  function recordTrainingResult(correct: boolean, puzzle: Puzzle, lessonTitle?: string) {
     setProgress(current => {
       const active = touchActivity(current);
       const next: TutorProgress = {
@@ -251,6 +251,18 @@ function App() {
       };
       return next;
     });
+
+    if (authUser && cloudSyncedFor === authUser.id) {
+      void recordTrainingAttempt({
+        userId: authUser.id,
+        lessonId: lessonTitle,
+        puzzleKey: puzzle.title,
+        fen: puzzle.fen,
+        expectedMove: puzzle.expected,
+        correct,
+        hintsUsed: 0
+      });
+    }
   }
 
   function completeReview() {
@@ -331,7 +343,7 @@ function App() {
             <TrainView
               puzzle={trainingPuzzle}
               onHelp={() => setHelpOpen(true)}
-              onResult={(correct) => recordTrainingResult(correct, trainingPuzzle.title)}
+              onResult={(correct) => recordTrainingResult(correct, trainingPuzzle, trainingPuzzle.title)}
             />
           )}
           {tab === "learn" && <LearnView onPractice={startLesson} />}
