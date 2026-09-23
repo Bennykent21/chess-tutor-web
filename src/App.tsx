@@ -21,7 +21,9 @@ import {
   Zap
 } from "lucide-react";
 import { openingCourses, pastGames } from "./data/content";
-import { defaultProgress, loadProgress, saveProgress, touchActivity, TutorProgress } from "./lib/storage";
+import { loadProgress, saveProgress, touchActivity, TutorProgress } from "./lib/storage";
+import { AuthUser, getAuthUser, loadCloudProgress, saveCloudProgress, signOut, subscribeToAuthChanges } from "./lib/cloud";
+import { AuthModal } from "./components/AuthModal";
 
 type Tab = "train" | "learn" | "play" | "review";
 type Orientation = "w" | "b";
@@ -164,6 +166,42 @@ function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [trainingPuzzle, setTrainingPuzzle] = useState<Puzzle>(trainingPositions[0]);
   const [progress, setProgress] = useState<TutorProgress>(() => loadProgress());
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [cloudSyncedFor, setCloudSyncedFor] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getAuthUser().then(user => {
+      if (active) setAuthUser(user);
+    });
+    return subscribeToAuthChanges(user => {
+      if (active) {
+        setAuthUser(user);
+        if (!user) setCloudSyncedFor(null);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!authUser || cloudSyncedFor === authUser.id) return;
+    let active = true;
+    loadCloudProgress(authUser.id).then(cloud => {
+      if (!active) return;
+      if (cloud) setProgress(cloud);
+      setCloudSyncedFor(authUser.id);
+    });
+    return () => {
+      active = false;
+    };
+  }, [authUser, cloudSyncedFor]);
+
+  useEffect(() => {
+    saveProgress(progress);
+    if (authUser && cloudSyncedFor === authUser.id) {
+      void saveCloudProgress(authUser.id, progress);
+    }
+  }, [progress, authUser, cloudSyncedFor]);
 
   useEffect(() => {
     saveProgress(progress);
@@ -230,9 +268,9 @@ function App() {
           <button className="icon-button" aria-label="Settings" onClick={() => setSettingsOpen(true)}>
             <Settings size={17} />
           </button>
-          <button className="profile-button" onClick={() => setHelpOpen(true)}>
-            <span className="avatar">B</span>
-            <span className="profile-copy"><b>Player</b><small>1765</small></span>
+          <button className="profile-button" onClick={() => setAuthOpen(true)}>
+            <span className="avatar">{authUser ? (authUser.email?.[0] ?? "B").toUpperCase() : "B"}</span>
+            <span className="profile-copy"><b>{authUser ? "Account" : "Player"}</b><small>{authUser?.email ?? "1765"}</small></span>
           </button>
           <button className="menu-button" aria-label="Menu" onClick={() => setMobileMenu(v => !v)}>
             {mobileMenu ? <X size={19} /> : <Menu size={19} />}
@@ -300,6 +338,16 @@ function App() {
           </button>
         ))}
       </nav>
+
+      {authOpen && !authUser && <AuthModal onClose={() => setAuthOpen(false)} />}
+      {authOpen && authUser && <Modal title="Your account" onClose={() => setAuthOpen(false)}>
+        <div className="account-summary">
+          <span className="surface-label">SIGNED IN</span>
+          <h3>{authUser.email}</h3>
+          <p>Your tutor progress is connected to the shared cloud account. Local progress remains available if the network is unavailable.</p>
+          <button className="secondary-button full" onClick={() => { void signOut(); setAuthOpen(false); }}><X size={16} /> Sign out</button>
+        </div>
+      </Modal>}
 
       {settingsOpen && <Modal title="Training settings" onClose={() => setSettingsOpen(false)}>
         <div className="settings-grid">
