@@ -418,7 +418,6 @@ function TrainView({
   const [mistake, setMistake] = useState(false);
   const [solved, setSolved] = useState(false);
   const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
-  const [recordedGame, setRecordedGame] = useState(false);
 
   useEffect(() => {
     setGame(new Chess(puzzle.fen));
@@ -729,6 +728,7 @@ function PlayView() {
   const [chooserOpen, setChooserOpen] = useState(false);
   const [status, setStatus] = useState("Choose an opponent and start a game.");
   const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
+  const [recordedGame, setRecordedGame] = useState(false);
 
   const legalTargets = useMemo(
     () => selected
