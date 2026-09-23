@@ -69,6 +69,7 @@ export async function loadCloudProgress(userId: string): Promise<TutorProgress |
     streak: row.streak,
     solvedPositions: row.solved_positions,
     recordedMistakes: row.recorded_mistakes,
+    completedLessons: [],
     lastActiveDate: row.last_active_date
   };
 }
