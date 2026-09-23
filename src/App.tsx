@@ -20,7 +20,7 @@ import {
   X,
   Zap
 } from "lucide-react";
-import { openingCourses, pastGames } from "./data/content";
+import { curriculumLessons, openingCourses, pastGames } from "./data/content";
 import { loadProgress, saveProgress, touchActivity, TutorProgress } from "./lib/storage";
 import { AuthUser, getAuthUser, loadCloudProgress, saveCloudProgress, signOut, subscribeToAuthChanges } from "./lib/cloud";
 import { AuthModal } from "./components/AuthModal";
@@ -43,8 +43,8 @@ type Lesson = {
   subtitle: string;
   category: string;
   copy: string;
-  fen: string;
-  move: string;
+  fen?: string;
+  move?: string;
   explanation: string;
 };
 
@@ -133,6 +133,18 @@ const lessons: Lesson[] = [
   }
 ];
 
+const curriculumOnlyLessons: Lesson[] = curriculumLessons
+  .filter(item => !lessons.some(lesson => lesson.title === item.title))
+  .map(item => ({
+    title: item.title,
+    subtitle: item.subtitle,
+    category: item.category,
+    copy: item.copy,
+    explanation: item.copy
+  }));
+
+const lessonCatalog: Lesson[] = [...lessons, ...curriculumOnlyLessons];
+
 const reviewPositions: Puzzle[] = [
   trainingPositions[0],
   {
@@ -209,6 +221,7 @@ function App() {
   }
 
   function startLesson(lesson: Lesson) {
+    if (!lesson.fen || !lesson.move) return;
     setTrainingPuzzle({
       title: lesson.title,
       category: lesson.category,
@@ -637,7 +650,7 @@ function LearnView({ onPractice }: { onPractice: (lesson: Lesson) => void }) {
   const [filter, setFilter] = useState("All");
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const filters = ["All", "Openings", "Tactics", "Middlegame", "Endgame", "Blunder Patterns"];
-  const visibleLessons = lessons.filter(item => filter === "All" || item.category === filter);
+  const visibleLessons = lessonCatalog.filter(item => filter === "All" || item.category === filter);
 
   return (
     <>
@@ -658,7 +671,9 @@ function LearnView({ onPractice }: { onPractice: (lesson: Lesson) => void }) {
             <p>{lesson.copy}</p>
             <div className="lesson-actions">
               <button className="text-action" onClick={() => setSelectedLesson(lesson)}>Read lesson <ChevronRight size={14} /></button>
-              <button className="text-action secondary-action" onClick={() => onPractice(lesson)}>Practise <Play size={13} /></button>
+              {lesson.fen && lesson.move
+                ? <button className="text-action secondary-action" onClick={() => onPractice(lesson)}>Practise <Play size={13} /></button>
+                : <span className="lesson-status">Read first</span>}
             </div>
           </article>
         ))}
@@ -674,7 +689,7 @@ function LearnView({ onPractice }: { onPractice: (lesson: Lesson) => void }) {
           <div className="lesson-modal-meta"><span className="rank-pill">{selectedLesson.category}</span><span className="mono">{selectedLesson.subtitle}</span></div>
           <p>{selectedLesson.copy}</p>
           <div className="lesson-why"><span className="surface-label">WHY IT MATTERS</span><p>{selectedLesson.explanation}</p></div>
-          <button className="brass-button" onClick={() => { onPractice(selectedLesson); setSelectedLesson(null); }}><Play size={16} /> Train this position</button>
+          {selectedLesson.fen && selectedLesson.move && <button className="brass-button" onClick={() => { onPractice(selectedLesson); setSelectedLesson(null); }}><Play size={16} /> Train this position</button>}
         </div>
       </Modal>}
     </>
