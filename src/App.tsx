@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { curriculumLessons, openingCourses, pastGames } from "./data/content";
 import { loadProgress, saveProgress, touchActivity, TutorProgress } from "./lib/storage";
-import { AuthUser, getAuthUser, loadCloudProgress, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges } from "./lib/cloud";
+import { AuthUser, getAuthUser, loadCloudProgress, recordGame, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges } from "./lib/cloud";
 import { AuthModal } from "./components/AuthModal";
 
 type Tab = "train" | "learn" | "play" | "review";
@@ -265,12 +265,16 @@ function App() {
     }
   }
 
-  function completeReview() {
+  function completeReview(puzzle: Puzzle, correct: boolean) {
+    if (!correct) return;
     setProgress(current => ({
       ...touchActivity(current),
       reviewDue: Math.max(0, current.reviewDue - 1),
       weeklyAccuracy: Math.min(99, current.weeklyAccuracy + 1)
     }));
+    if (authUser && cloudSyncedFor === authUser.id) {
+      void recordReviewAttempt({ userId: authUser.id, puzzleKey: puzzle.title, correct });
+    }
   }
 
   return (
@@ -834,7 +838,7 @@ function botScore(move: { captured?: string; san: string; to: string }) {
   return score;
 }
 
-function ReviewView({ due, onComplete }: { due: number; onComplete: () => void }) {
+function ReviewView({ due, onComplete }: { due: number; onComplete: (puzzle: Puzzle, correct: boolean) => void }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   return (
@@ -876,7 +880,7 @@ function ReviewSession({
   onClose
 }: {
   initialIndex: number;
-  onComplete: () => void;
+  onComplete: (puzzle: Puzzle, correct: boolean) => void;
   onClose: () => void;
 }) {
   const [index, setIndex] = useState(initialIndex);
@@ -916,7 +920,7 @@ function ReviewSession({
   }
 
   function nextCard() {
-    onComplete();
+    onComplete(puzzle, result === "correct");
     if (index >= reviewPositions.length - 1) {
       onClose();
       return;
