@@ -8,6 +8,7 @@ type CloudProgressRow = {
   streak: number;
   solved_positions: number;
   recorded_mistakes: number;
+  completed_lessons: string[];
   last_active_date: string | null;
 };
 
@@ -56,7 +57,7 @@ export async function loadCloudProgress(userId: string): Promise<TutorProgress |
 
   const { data, error } = await supabase
     .from("user_progress")
-    .select("user_id, weekly_accuracy, review_due, streak, solved_positions, recorded_mistakes, last_active_date")
+    .select("user_id, weekly_accuracy, review_due, streak, solved_positions, recorded_mistakes, completed_lessons, last_active_date")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -69,7 +70,7 @@ export async function loadCloudProgress(userId: string): Promise<TutorProgress |
     streak: row.streak,
     solvedPositions: row.solved_positions,
     recordedMistakes: row.recorded_mistakes,
-    completedLessons: [],
+    completedLessons: Array.isArray(row.completed_lessons) ? row.completed_lessons : [],
     lastActiveDate: row.last_active_date
   };
 }
@@ -84,6 +85,7 @@ export async function saveCloudProgress(userId: string, progress: TutorProgress)
     streak: progress.streak,
     solved_positions: progress.solvedPositions,
     recorded_mistakes: progress.recordedMistakes,
+    completed_lessons: progress.completedLessons,
     last_active_date: progress.lastActiveDate,
     updated_at: new Date().toISOString()
   });
