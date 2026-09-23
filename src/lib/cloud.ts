@@ -114,3 +114,48 @@ export async function recordTrainingAttempt(args: {
     hints_used: args.hintsUsed
   });
 }
+
+
+export async function recordReviewAttempt(args: {
+  userId: string;
+  puzzleKey: string;
+  correct: boolean;
+}) {
+  if (!supabase) return;
+
+  const now = new Date();
+  const intervalDays = args.correct ? 3 : 1;
+  const dueAt = new Date(now);
+  dueAt.setDate(dueAt.getDate() + intervalDays);
+
+  await supabase.from("review_items").upsert({
+    user_id: args.userId,
+    puzzle_key: args.puzzleKey,
+    due_at: dueAt.toISOString(),
+    interval_days: intervalDays,
+    repetitions: args.correct ? 1 : 0,
+    last_result: args.correct ? "correct" : "wrong",
+    last_attempt_at: now.toISOString()
+  }, { onConflict: "user_id,puzzle_key" });
+}
+
+export async function recordGame(args: {
+  userId: string;
+  opponentName: string;
+  opponentElo: number;
+  playerColor: "white" | "black";
+  result: "win" | "loss" | "draw";
+  pgn: string;
+}) {
+  if (!supabase) return;
+
+  await supabase.from("games").insert({
+    user_id: args.userId,
+    opponent_name: args.opponentName,
+    opponent_elo: args.opponentElo,
+    player_color: args.playerColor,
+    result: args.result,
+    pgn: args.pgn,
+    finished_at: new Date().toISOString()
+  });
+}
