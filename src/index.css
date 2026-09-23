@@ -318,3 +318,5 @@ button:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
 .account-summary { display:grid;gap:10px; }
 .account-summary h3 { margin:0;font-size:15px;word-break:break-word; }
 .account-summary p { margin:0;color:var(--text-2);font-size:11px;line-height:1.65; }
+
+.lesson-status { display:inline-flex;align-items:center;min-height:28px;color:var(--text-3);font:500 9px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.06em; }
