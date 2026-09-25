@@ -324,3 +324,9 @@ button:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
 .lesson-complete { display:inline-flex;align-items:center;min-height:28px;padding:0 8px;border:1px solid rgba(120,186,145,.24);border-radius:999px;color:var(--sage);font:600 9px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.05em; }
 .empty-history { display:grid;gap:7px;padding:22px 16px;color:var(--text-2); }
 .empty-history p { margin:0;max-width:260px;font-size:11px;line-height:1.6; }
+
+.review-layout > .review-list { grid-column:2;grid-row:1 / span 2; }
+.pattern-list { display:grid;gap:7px;margin-top:11px; }
+.pattern-row { display:flex;align-items:center;justify-content:space-between;min-height:30px;padding:0 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--text-2);font-size:10px; }
+.pattern-row b { color:var(--coral);font:600 11px "IBM Plex Mono",monospace; }
+.pattern-empty { margin:11px 0 0 !important; }
