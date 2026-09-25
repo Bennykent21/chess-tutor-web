@@ -320,3 +320,7 @@ button:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
 .account-summary p { margin:0;color:var(--text-2);font-size:11px;line-height:1.65; }
 
 .lesson-status { display:inline-flex;align-items:center;min-height:28px;color:var(--text-3);font:500 9px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.06em; }
+
+.lesson-complete { display:inline-flex;align-items:center;min-height:28px;padding:0 8px;border:1px solid rgba(120,186,145,.24);border-radius:999px;color:var(--sage);font:600 9px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.05em; }
+.empty-history { display:grid;gap:7px;padding:22px 16px;color:var(--text-2); }
+.empty-history p { margin:0;max-width:260px;font-size:11px;line-height:1.6; }
