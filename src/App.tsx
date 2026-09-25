@@ -408,6 +408,7 @@ function App() {
               puzzle={trainingPuzzle}
               onHelp={() => setHelpOpen(true)}
               onResult={(correct) => recordTrainingResult(correct, trainingPuzzle, trainingPuzzle.title)}
+              profile={profile}
             />
           )}
           {tab === "learn" && <LearnView onPractice={startLesson} />}
