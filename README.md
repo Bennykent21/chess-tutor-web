@@ -14,6 +14,8 @@ This repository is intentionally web-only. The Android implementation lives in t
 - Review → playable recall queue
 - Persistent local progress
 - Optional Supabase authentication and cloud progress sync
+- Persistent spaced-repetition review queue with 1 / 3 / 7 / 14 / 30 day intervals
+- Local-first game history with optional cloud game history hydration
 - Shared database migration for profiles, progress, training attempts, review items, lesson progress, and games
 
 ## Design direction
@@ -42,4 +44,4 @@ VITE_SUPABASE_ANON_KEY=
 
 Apply `supabase/migrations/0001_chess_tutor_core.sql` to the shared project before using cloud sync.
 
-The app remains usable without Supabase credentials. In that mode, progress is stored locally in the browser. Never put a Supabase service-role key in the web app; only the public anon key belongs in `VITE_SUPABASE_ANON_KEY`.
+The app remains usable without Supabase credentials. In that mode, progress, review scheduling, and recent games are stored locally in the browser. When a user signs in, progress, review items, training attempts, player profile, and completed games can sync to Supabase. Never put a Supabase service-role key in the web app; only the public anon key belongs in `VITE_SUPABASE_ANON_KEY`.
