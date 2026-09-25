@@ -20,7 +20,7 @@ import {
   X,
   Zap
 } from "lucide-react";
-import { curriculumLessons, openingCourses, pastGames } from "./data/content";
+import { curriculumLessons, openingCourses } from "./data/content";
 import { applyReviewResult, countDueReviews, loadGameHistory, loadProgress, loadReviewSchedule, saveGameRecord, saveProgress, saveReviewSchedule, touchActivity, TutorGameRecord, TutorProgress, TutorReviewItem } from "./lib/storage";
 import { AuthUser, getAuthUser, loadCloudGames, loadCloudProfile, loadCloudProgress, loadCloudReviewItems, recordGame, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges, TutorProfile } from "./lib/cloud";
 import { AuthModal } from "./components/AuthModal";
