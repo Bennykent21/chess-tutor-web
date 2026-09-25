@@ -213,3 +213,44 @@ export function applyReviewResult(schedule: TutorReviewItem[], puzzleKey: string
 export function countDueReviews(schedule: TutorReviewItem[], now = new Date()) {
   return schedule.filter(item => new Date(item.dueAt).getTime() <= now.getTime()).length;
 }
+
+
+export type TutorAttemptRecord = {
+  puzzleKey: string;
+  category: string;
+  correct: boolean;
+  createdAt: string;
+};
+
+const ATTEMPTS_KEY = "chess-tutor.attempts.v1";
+
+export function loadAttemptHistory(): TutorAttemptRecord[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(ATTEMPTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(item =>
+      item &&
+      typeof item.puzzleKey === "string" &&
+      typeof item.category === "string" &&
+      typeof item.correct === "boolean" &&
+      typeof item.createdAt === "string"
+    ).slice(0, 100) as TutorAttemptRecord[];
+  } catch {
+    return [];
+  }
+}
+
+export function saveAttempt(record: TutorAttemptRecord) {
+  if (typeof window === "undefined") return;
+
+  try {
+    const current = loadAttemptHistory();
+    window.localStorage.setItem(ATTEMPTS_KEY, JSON.stringify([record, ...current].slice(0, 100)));
+  } catch {
+    // Attempt history is an enhancement; training remains functional if storage is unavailable.
+  }
+}
