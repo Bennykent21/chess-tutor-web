@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { curriculumLessons, openingCourses, pastGames } from "./data/content";
 import { loadGameHistory, loadProgress, saveGameRecord, saveProgress, touchActivity, TutorGameRecord, TutorProgress } from "./lib/storage";
-import { AuthUser, getAuthUser, loadCloudGames, loadCloudProgress, recordGame, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges } from "./lib/cloud";
+import { AuthUser, getAuthUser, loadCloudGames, loadCloudProfile, loadCloudProgress, recordGame, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges, TutorProfile } from "./lib/cloud";
 import { AuthModal } from "./components/AuthModal";
 
 type Tab = "train" | "learn" | "play" | "review";
@@ -179,6 +179,7 @@ function App() {
   const [trainingPuzzle, setTrainingPuzzle] = useState<Puzzle>(trainingPositions[0]);
   const [progress, setProgress] = useState<TutorProgress>(() => loadProgress());
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [profile, setProfile] = useState<TutorProfile | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [cloudSyncedFor, setCloudSyncedFor] = useState<string | null>(null);
 
@@ -194,6 +195,22 @@ function App() {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (!authUser) {
+      setProfile(null);
+      return;
+    }
+
+    let active = true;
+    loadCloudProfile(authUser.id).then(next => {
+      if (active) setProfile(next);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [authUser]);
 
   useEffect(() => {
     if (!authUser || cloudSyncedFor === authUser.id) return;
@@ -300,8 +317,8 @@ function App() {
             <Settings size={17} />
           </button>
           <button className="profile-button" onClick={() => setAuthOpen(true)}>
-            <span className="avatar">{authUser ? (authUser.email?.[0] ?? "B").toUpperCase() : "B"}</span>
-            <span className="profile-copy"><b>{authUser ? "Account" : "Player"}</b><small>{authUser?.email ?? "1765"}</small></span>
+            <span className="avatar">{(profile?.username?.[0] ?? authUser?.email?.[0] ?? "B").toUpperCase()}</span>
+            <span className="profile-copy"><b>{profile?.username ?? (authUser ? "Account" : "Player")}</b><small>{profile ? String(profile.rating) : authUser?.email ?? "1765"}</small></span>
           </button>
           <button className="menu-button" aria-label="Menu" onClick={() => setMobileMenu(v => !v)}>
             {mobileMenu ? <X size={19} /> : <Menu size={19} />}
@@ -525,7 +542,7 @@ function TrainView({
           </div>
 
           <div className="board-bottom">
-            <div className="player-row"><div className="player-avatar">B</div><div><b>You</b><span>1765 · White</span></div></div>
+            <div className="player-row"><div className="player-avatar">{(profile?.username?.[0] ?? "B").toUpperCase()}</div><div><b>{profile?.username ?? "You"}</b><span>{profile?.rating ?? 1765} · White</span></div></div>
             <div className="move-state">{game.history().length ? game.history().slice(-8).join("  ") : "Choose a piece to begin"}</div>
             <button className="ghost-button" onClick={reset}><RotateCcw size={15} /> Retry</button>
           </div>
