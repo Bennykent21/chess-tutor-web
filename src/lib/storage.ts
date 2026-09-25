@@ -11,9 +11,9 @@ export type TutorProgress = {
 const STORAGE_KEY = "chess-tutor.progress.v1";
 
 export const defaultProgress: TutorProgress = {
-  weeklyAccuracy: 82,
-  reviewDue: 4,
-  streak: 7,
+  weeklyAccuracy: 0,
+  reviewDue: 0,
+  streak: 0,
   completedLessons: [],
   solvedPositions: 0,
   recordedMistakes: 0,
