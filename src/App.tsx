@@ -21,8 +21,8 @@ import {
   Zap
 } from "lucide-react";
 import { curriculumLessons, openingCourses, pastGames } from "./data/content";
-import { loadGameHistory, loadProgress, saveGameRecord, saveProgress, touchActivity, TutorGameRecord, TutorProgress } from "./lib/storage";
-import { AuthUser, getAuthUser, loadCloudGames, loadCloudProfile, loadCloudProgress, recordGame, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges, TutorProfile } from "./lib/cloud";
+import { applyReviewResult, countDueReviews, loadGameHistory, loadProgress, loadReviewSchedule, saveGameRecord, saveProgress, saveReviewSchedule, touchActivity, TutorGameRecord, TutorProgress, TutorReviewItem } from "./lib/storage";
+import { AuthUser, getAuthUser, loadCloudGames, loadCloudProfile, loadCloudProgress, loadCloudReviewItems, recordGame, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges, TutorProfile } from "./lib/cloud";
 import { AuthModal } from "./components/AuthModal";
 
 type Tab = "train" | "learn" | "play" | "review";
@@ -192,6 +192,9 @@ function App() {
   const [profile, setProfile] = useState<TutorProfile | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [cloudSyncedFor, setCloudSyncedFor] = useState<string | null>(null);
+  const [reviewSchedule, setReviewSchedule] = useState<TutorReviewItem[]>(() =>
+    loadReviewSchedule(reviewPositions.map(item => item.title))
+  );
 
   useEffect(() => {
     let active = true;
@@ -225,9 +228,20 @@ function App() {
   useEffect(() => {
     if (!authUser || cloudSyncedFor === authUser.id) return;
     let active = true;
-    loadCloudProgress(authUser.id).then(cloud => {
+    Promise.all([
+      loadCloudProgress(authUser.id),
+      loadCloudReviewItems(authUser.id)
+    ]).then(([cloud, cloudReviews]) => {
       if (!active) return;
       if (cloud) setProgress(cloud);
+      if (cloudReviews.length) {
+        setReviewSchedule(current => {
+          const byKey = new Map(cloudReviews.map(item => [item.puzzleKey, item]));
+          const merged = current.map(item => byKey.get(item.puzzleKey) ?? item);
+          saveReviewSchedule(merged);
+          return merged;
+        });
+      }
       setCloudSyncedFor(authUser.id);
     });
     return () => {
@@ -293,21 +307,34 @@ function App() {
   }
 
   function completeReview(puzzle: Puzzle, correct: boolean) {
-    setProgress(current => correct
-      ? {
-          ...touchActivity(current),
-          reviewDue: Math.max(0, current.reviewDue - 1),
-          weeklyAccuracy: Math.min(99, current.weeklyAccuracy + 1)
-        }
-      : {
-          ...touchActivity(current),
-          recordedMistakes: current.recordedMistakes + 1,
-          reviewDue: Math.min(12, current.reviewDue + 1)
-        }
-    );
-    if (authUser && cloudSyncedFor === authUser.id) {
-      void recordReviewAttempt({ userId: authUser.id, puzzleKey: puzzle.title, correct });
-    }
+    setReviewSchedule(current => {
+      const next = applyReviewResult(current, puzzle.title, correct);
+      saveReviewSchedule(next);
+      const due = countDueReviews(next);
+      setProgress(progressCurrent => correct
+        ? {
+            ...touchActivity(progressCurrent),
+            reviewDue: due,
+            weeklyAccuracy: Math.min(99, progressCurrent.weeklyAccuracy + 1)
+          }
+        : {
+            ...touchActivity(progressCurrent),
+            recordedMistakes: progressCurrent.recordedMistakes + 1,
+            reviewDue: due
+          }
+      );
+      const updated = next.find(item => item.puzzleKey === puzzle.title);
+      if (authUser && cloudSyncedFor === authUser.id && updated) {
+        void recordReviewAttempt({
+          userId: authUser.id,
+          puzzleKey: puzzle.title,
+          correct,
+          intervalDays: updated.intervalDays,
+          repetitions: updated.repetitions
+        });
+      }
+      return next;
+    });
   }
 
   return (
@@ -385,7 +412,7 @@ function App() {
           )}
           {tab === "learn" && <LearnView onPractice={startLesson} />}
           {tab === "play" && <PlayView authUser={authUser} cloudSyncedFor={cloudSyncedFor} />}
-          {tab === "review" && <ReviewView due={progress.reviewDue} onComplete={completeReview} />}
+          {tab === "review" && <ReviewView due={progress.reviewDue} schedule={reviewSchedule} onComplete={completeReview} />}
         </main>
       </div>
 
@@ -523,6 +550,15 @@ function TrainView({
     setLastMove(null);
     setMessage(next.goal);
   }
+
+  const now = Date.now();
+  const dueIndexes = reviewPositions
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => {
+      const scheduled = schedule.find(entry => entry.puzzleKey === item.title);
+      return !scheduled || new Date(scheduled.dueAt).getTime() <= now;
+    })
+    .map(({ index }) => index);
 
   return (
     <>
@@ -937,7 +973,15 @@ function botScore(move: { captured?: string; san: string; to: string }) {
   return score;
 }
 
-function ReviewView({ due, onComplete }: { due: number; onComplete: (puzzle: Puzzle, correct: boolean) => void }) {
+function ReviewView({
+  due,
+  schedule,
+  onComplete
+}: {
+  due: number;
+  schedule: TutorReviewItem[];
+  onComplete: (puzzle: Puzzle, correct: boolean) => void;
+}) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   return (
@@ -953,18 +997,23 @@ function ReviewView({ due, onComplete }: { due: number; onComplete: (puzzle: Puz
           <strong>{due} positions</strong>
           <p>1 day · 3 days · 7 days · 14 days · 30 days</p>
           <div className="review-progress"><span style={{ width: String(Math.max(0, 100 - due * 12)) + "%" }} /></div>
-          <button className="brass-button" onClick={() => setActiveIndex(0)} disabled={due === 0}><Play size={16} /> {due === 0 ? "Queue complete" : "Start review"}</button>
+          <button className="brass-button" onClick={() => setActiveIndex(dueIndexes[0] ?? 0)} disabled={due === 0}><Play size={16} /> {due === 0 ? "Queue complete" : "Start review"}</button>
         </div>
 
         <div className="review-list">
-          {reviewPositions.map((item, i) => (
-            <button className="review-item review-item-button" key={item.title} onClick={() => setActiveIndex(i)}>
-              <span className="review-index">{i + 1}</span>
-              <div><b>{item.title}</b><p>{item.goal}</p></div>
-              <span className="review-stage">{i < due ? "Due today" : String(i + 1) + " days"}</span>
-              <ChevronRight size={15} />
-            </button>
-          ))}
+          {reviewPositions.map((item, i) => {
+            const scheduled = schedule.find(entry => entry.puzzleKey === item.title);
+            const isDue = !scheduled || new Date(scheduled.dueAt).getTime() <= now;
+            const daysAway = scheduled ? Math.max(1, Math.ceil((new Date(scheduled.dueAt).getTime() - now) / 86400000)) : 0;
+            return (
+              <button className="review-item review-item-button" key={item.title} onClick={() => setActiveIndex(i)}>
+                <span className="review-index">{i + 1}</span>
+                <div><b>{item.title}</b><p>{item.goal}</p></div>
+                <span className="review-stage">{isDue ? "Due today" : `In ${daysAway}d`}</span>
+                <ChevronRight size={15} />
+              </button>
+            );
+          })}
         </div>
       </section>
 
