@@ -250,6 +250,12 @@ function App() {
   }, [authUser, cloudSyncedFor]);
 
   useEffect(() => {
+    const due = countDueReviews(reviewSchedule);
+    setProgress(current => current.reviewDue === due ? current : { ...current, reviewDue: due });
+    saveReviewSchedule(reviewSchedule);
+  }, [reviewSchedule]);
+
+  useEffect(() => {
     saveProgress(progress);
     if (authUser && cloudSyncedFor === authUser.id) {
       void saveCloudProgress(authUser.id, progress);
