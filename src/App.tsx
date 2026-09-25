@@ -442,7 +442,7 @@ function App() {
             <TrainView
               puzzle={trainingPuzzle}
               onHelp={() => setHelpOpen(true)}
-              onResult={(correct) => recordTrainingResult(correct, trainingPuzzle, trainingPuzzle.title)}
+              onResult={(correct, hintsUsed) => recordTrainingResult(correct, trainingPuzzle, trainingPuzzle.title, hintsUsed)}
               profile={profile}
             />
           )}
