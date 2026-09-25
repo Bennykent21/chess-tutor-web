@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { curriculumLessons, openingCourses, pastGames } from "./data/content";
 import { loadGameHistory, loadProgress, saveGameRecord, saveProgress, touchActivity, TutorGameRecord, TutorProgress } from "./lib/storage";
-import { AuthUser, getAuthUser, loadCloudProgress, recordGame, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges } from "./lib/cloud";
+import { AuthUser, getAuthUser, loadCloudGames, loadCloudProgress, recordGame, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges } from "./lib/cloud";
 import { AuthModal } from "./components/AuthModal";
 
 type Tab = "train" | "learn" | "play" | "review";
@@ -726,6 +726,30 @@ function PlayView({
   cloudSyncedFor: string | null;
 }) {
   const [localGames, setLocalGames] = useState<TutorGameRecord[]>(() => loadGameHistory());
+  
+  useEffect(() => {
+    if (!authUser || cloudSyncedFor !== authUser.id) return;
+
+    let active = true;
+    loadCloudGames(authUser.id).then(cloudGames => {
+      if (!active || !cloudGames.length) return;
+
+      setLocalGames(current => {
+        const merged = [...cloudGames, ...current];
+        const seen = new Set<string>();
+        return merged.filter(game => {
+          const key = [game.opponent, game.date, game.result, game.moves].join("|");
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        }).slice(0, 20);
+      });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [authUser, cloudSyncedFor]);
   const [game, setGame] = useState(() => new Chess());
   const [orientation, setOrientation] = useState<Orientation>("w");
   const [selected, setSelected] = useState<Square | null>(null);
