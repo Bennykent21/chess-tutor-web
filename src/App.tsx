@@ -347,7 +347,7 @@ function App() {
         </div>
 
         <div className="topbar-meta">
-          <div className="streak"><span className="streak-dot" />{progress.streak} day streak</div>
+          <div className="streak"><span className="streak-dot" />{progress.streak ? progress.streak + " day streak" : "Start your streak"}</div>
           <button className="icon-button" aria-label="Settings" onClick={() => setSettingsOpen(true)}>
             <Settings size={17} />
           </button>
@@ -409,7 +409,7 @@ function App() {
               profile={profile}
             />
           )}
-          {tab === "learn" && <LearnView onPractice={startLesson} />}
+          {tab === "learn" && <LearnView onPractice={startLesson} completedLessons={progress.completedLessons} />}
           {tab === "play" && <PlayView authUser={authUser} cloudSyncedFor={cloudSyncedFor} />}
           {tab === "review" && <ReviewView due={progress.reviewDue} schedule={reviewSchedule} onComplete={completeReview} />}
         </main>
@@ -723,7 +723,13 @@ function ChessPiece({ color, type }: { color: "w" | "b"; type: string }) {
   );
 }
 
-function LearnView({ onPractice }: { onPractice: (lesson: Lesson) => void }) {
+function LearnView({
+  onPractice,
+  completedLessons
+}: {
+  onPractice: (lesson: Lesson) => void;
+  completedLessons: string[];
+}) {
   const [filter, setFilter] = useState("All");
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const filters = ["All", "Openings", "Tactics", "Middlegame", "Endgame", "Blunder Patterns"];
@@ -751,6 +757,7 @@ function LearnView({ onPractice }: { onPractice: (lesson: Lesson) => void }) {
               {lesson.fen && lesson.move
                 ? <button className="text-action secondary-action" onClick={() => onPractice(lesson)}>Practise <Play size={13} /></button>
                 : <span className="lesson-status">Read first</span>}
+              {completedLessons.includes(lesson.title) && <span className="lesson-complete">Completed</span>}
             </div>
           </article>
         ))}
@@ -758,7 +765,10 @@ function LearnView({ onPractice }: { onPractice: (lesson: Lesson) => void }) {
 
       <section className="repertoire-strip">
         <div><span className="eyebrow">OPENING COURSES</span><h2>Repertoire in progress</h2><p>Course progress is seeded locally until the shared backend is connected.</p></div>
-        <div className="repertoire-pills">{openingCourses.slice(0, 4).map(c => <button key={c.name} className="repertoire-pill" onClick={() => setFilter("Openings")}>{c.name}<b>{c.progress}%</b></button>)}</div>
+        <div className="repertoire-pills">{openingCourses.slice(0, 4).map(c => {
+          const completed = completedLessons.includes(c.name) || completedLessons.includes("The " + c.name);
+          return <button key={c.name} className="repertoire-pill" onClick={() => setFilter("Openings")}>{c.name}<b>{completed ? "Complete" : "Open"}</b></button>;
+        })}</div>
       </section>
 
       {selectedLesson && <Modal title={selectedLesson.title} onClose={() => setSelectedLesson(null)}>
@@ -928,14 +938,15 @@ function PlayView({
 
         <article className="recent-card">
           <div className="card-head"><div><span className="surface-label">RECENT GAMES</span><h3>Past games</h3></div><History size={16} /></div>
-          {(localGames.length ? localGames : pastGames).map(gameRow => (
+          {localGames.length ? localGames.map(gameRow => (
+
             <button className="game-row game-row-button" key={gameRow.opponent + gameRow.date} onClick={startGame}>
               <span className="result-badge">{gameRow.result}</span>
               <div className="game-opponent"><b>{gameRow.opponent}</b><span>{gameRow.rating} · {gameRow.opening}</span></div>
               <span className="mono">{gameRow.moves} moves</span>
               <span className="date-label">{gameRow.date}</span>
             </button>
-          ))}
+          )) : <div className="empty-history"><span className="surface-label">NO GAMES YET</span><p>Finish a local game and it will appear here.</p></div>}
         </article>
       </div>
 
