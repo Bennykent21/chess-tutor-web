@@ -1,4 +1,4 @@
-import type { TutorProgress } from "./storage";
+import type { TutorProgress, TutorReviewItem } from "./storage";
 import { supabase } from "./supabase";
 
 type CloudProgressRow = {
@@ -120,11 +120,13 @@ export async function recordReviewAttempt(args: {
   userId: string;
   puzzleKey: string;
   correct: boolean;
+  intervalDays: number;
+  repetitions: number;
 }) {
   if (!supabase) return;
 
   const now = new Date();
-  const intervalDays = args.correct ? 3 : 1;
+  const intervalDays = args.intervalDays;
   const dueAt = new Date(now);
   dueAt.setDate(dueAt.getDate() + intervalDays);
 
@@ -133,7 +135,7 @@ export async function recordReviewAttempt(args: {
     puzzle_key: args.puzzleKey,
     due_at: dueAt.toISOString(),
     interval_days: intervalDays,
-    repetitions: args.correct ? 1 : 0,
+    repetitions: args.repetitions,
     last_result: args.correct ? "correct" : "wrong",
     last_attempt_at: now.toISOString()
   }, { onConflict: "user_id,puzzle_key" });
@@ -225,4 +227,25 @@ export async function loadCloudProfile(userId: string): Promise<TutorProfile | n
     rating: data.rating ?? 1200,
     puzzleRating: data.puzzle_rating ?? 700
   };
+}
+
+
+export async function loadCloudReviewItems(userId: string): Promise<TutorReviewItem[]> {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("review_items")
+    .select("puzzle_key, due_at, interval_days, repetitions, last_result")
+    .eq("user_id", userId)
+    .order("due_at", { ascending: true });
+
+  if (error || !data) return [];
+
+  return data.map(row => ({
+    puzzleKey: row.puzzle_key,
+    dueAt: row.due_at,
+    intervalDays: row.interval_days,
+    repetitions: row.repetitions,
+    lastResult: row.last_result === "correct" || row.last_result === "wrong" ? row.last_result : null
+  }));
 }
