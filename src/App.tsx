@@ -552,15 +552,6 @@ function TrainView({
     setMessage(next.goal);
   }
 
-  const now = Date.now();
-  const dueIndexes = reviewPositions
-    .map((item, index) => ({ item, index }))
-    .filter(({ item }) => {
-      const scheduled = schedule.find(entry => entry.puzzleKey === item.title);
-      return !scheduled || new Date(scheduled.dueAt).getTime() <= now;
-    })
-    .map(({ index }) => index);
-
   return (
     <>
       <section className="hero-row">
@@ -984,6 +975,14 @@ function ReviewView({
   onComplete: (puzzle: Puzzle, correct: boolean) => void;
 }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const now = Date.now();
+  const dueIndexes = reviewPositions
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => {
+      const scheduled = schedule.find(entry => entry.puzzleKey === item.title);
+      return !scheduled || new Date(scheduled.dueAt).getTime() <= now;
+    })
+    .map(({ index }) => index);
 
   return (
     <>
