@@ -219,6 +219,7 @@ export type TutorAttemptRecord = {
   puzzleKey: string;
   category: string;
   correct: boolean;
+  hintsUsed: number;
   createdAt: string;
 };
 
