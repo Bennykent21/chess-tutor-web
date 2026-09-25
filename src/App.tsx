@@ -282,7 +282,7 @@ function App() {
     setTab("train");
   }
 
-  function recordTrainingResult(correct: boolean, puzzle: Puzzle, lessonTitle?: string) {
+  function recordTrainingResult(correct: boolean, puzzle: Puzzle, lessonTitle: string | undefined, hintsUsed: number) {
     setReviewSchedule(current => {
       const known = current.some(item => item.puzzleKey === puzzle.title);
       if (!known && !correct) {
@@ -307,6 +307,7 @@ function App() {
       puzzleKey: puzzle.title,
       category: puzzle.category,
       correct,
+      hintsUsed,
       createdAt: new Date().toISOString()
     };
     saveAttempt(attempt);
@@ -335,7 +336,7 @@ function App() {
         fen: puzzle.fen,
         expectedMove: puzzle.expected,
         correct,
-        hintsUsed: 0
+        hintsUsed
       });
     }
   }
@@ -498,7 +499,7 @@ function TrainView({
 }: {
   puzzle: Puzzle;
   onHelp: () => void;
-  onResult: (correct: boolean) => void;
+  onResult: (correct: boolean, hintsUsed: number) => void;
   profile: TutorProfile | null;
 }) {
   const [game, setGame] = useState(() => new Chess(puzzle.fen));
@@ -543,11 +544,11 @@ function TrainView({
       if (isCorrect) {
         setSolved(true);
         setMessage(puzzle.success);
-        onResult(true);
+        onResult(true, hintLevel);
       } else {
         setMistake(true);
         setMessage("That move is legal, but it misses the training objective. Look at the coach note, then retry.");
-        onResult(false);
+        onResult(false, hintLevel);
       }
       return;
     }
