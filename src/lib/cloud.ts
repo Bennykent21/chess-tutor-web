@@ -159,3 +159,43 @@ export async function recordGame(args: {
     finished_at: new Date().toISOString()
   });
 }
+
+
+export async function loadCloudGames(userId: string): Promise<import("./storage").TutorGameRecord[]> {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("games")
+    .select("opponent_name, opponent_elo, result, pgn, started_at, finished_at")
+    .eq("user_id", userId)
+    .order("started_at", { ascending: false })
+    .limit(20);
+
+  if (error || !data) return [];
+
+  return data.map(row => ({
+    opponent: row.opponent_name,
+    rating: row.opponent_elo ?? 0,
+    result: row.result === "win" ? "W" : row.result === "loss" ? "L" : "D",
+    date: new Date(row.finished_at ?? row.started_at).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    }),
+    opening: "Local game",
+    moves: countPgnMoves(row.pgn)
+  }));
+}
+
+function countPgnMoves(pgn: string) {
+  const moveTokens = pgn
+    .replace(/\[[^\]]*\]/g, "")
+    .replace(/\{[^}]*\}/g, "")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/\d+\.(\.\.)?/g, "")
+    .trim()
+    .split(/\s+/)
+    .filter(token => token && !["1-0", "0-1", "1/2-1/2", "*"].includes(token));
+
+  return moveTokens.length ? Math.ceil(moveTokens.length / 2) : 0;
+}
