@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { curriculumLessons, openingCourses } from "./data/content";
 import { applyReviewResult, countDueReviews, loadAttemptHistory, loadGameHistory, loadProgress, loadReviewSchedule, saveAttempt, saveGameRecord, saveProgress, saveReviewSchedule, touchActivity, TutorAttemptRecord, TutorGameRecord, TutorProgress, TutorReviewItem } from "./lib/storage";
-import { AuthUser, getAuthUser, loadCloudGames, loadCloudProfile, loadCloudProgress, loadCloudReviewItems, recordGame, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges, TutorProfile } from "./lib/cloud";
+import { AuthUser, getAuthUser, loadCloudGames, loadCloudProfile, loadCloudProgress, loadCloudReviewItems, recordGame, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges, TutorProfile, updateCloudProfile } from "./lib/cloud";
 import { AuthModal } from "./components/AuthModal";
 
 type Tab = "train" | "learn" | "play" | "review";
@@ -461,14 +461,13 @@ function App() {
       </nav>
 
       {authOpen && !authUser && <AuthModal onClose={() => setAuthOpen(false)} />}
-      {authOpen && authUser && <Modal title="Your account" onClose={() => setAuthOpen(false)}>
-        <div className="account-summary">
-          <span className="surface-label">SIGNED IN</span>
-          <h3>{authUser.email}</h3>
-          <p>Your tutor progress is connected to the shared cloud account. Local progress remains available if the network is unavailable.</p>
-          <button className="secondary-button full" onClick={() => { void signOut(); setAuthOpen(false); }}><X size={16} /> Sign out</button>
-        </div>
-      </Modal>}
+      {authOpen && authUser && <AccountModal
+        user={authUser}
+        profile={profile}
+        onProfileSaved={setProfile}
+        onSignOut={() => { void signOut(); setAuthOpen(false); }}
+        onClose={() => setAuthOpen(false)}
+      />}
 
       {settingsOpen && <Modal title="Training settings" onClose={() => setSettingsOpen(false)}>
         <div className="settings-grid">
@@ -1167,6 +1166,61 @@ function ReviewSession({
         </div>
       </div>
     </div>
+  );
+}
+
+function AccountModal({
+  user,
+  profile,
+  onProfileSaved,
+  onSignOut,
+  onClose
+}: {
+  user: AuthUser;
+  profile: TutorProfile | null;
+  onProfileSaved: (profile: TutorProfile) => void;
+  onSignOut: () => void;
+  onClose: () => void;
+}) {
+  const [username, setUsername] = useState(profile?.username ?? "");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function save() {
+    setMessage("");
+    setBusy(true);
+    const result = await updateCloudProfile(user.id, { username });
+    setBusy(false);
+
+    if (result.error) {
+      setMessage(result.error.message);
+      return;
+    }
+
+    onProfileSaved(profile
+      ? { ...profile, username: username.trim() }
+      : { username: username.trim(), title: "Novice", rating: 1200, puzzleRating: 700 }
+    );
+    setMessage("Profile saved.");
+  }
+
+  return (
+    <Modal title="Your account" onClose={onClose}>
+      <div className="account-summary">
+        <span className="surface-label">SIGNED IN</span>
+        <h3>{user.email}</h3>
+        <label className="field">
+          <span>Username</span>
+          <input value={username} onChange={event => setUsername(event.target.value)} maxLength={24} />
+        </label>
+        {profile && <div className="account-stats"><span>{profile.title}</span><span>{profile.rating} rating</span><span>{profile.puzzleRating} puzzle</span></div>}
+        {message && <div className="auth-message">{message}</div>}
+        <button className="brass-button full" onClick={save} disabled={busy || !username.trim()}>
+          {busy ? "Saving…" : "Save profile"}
+        </button>
+        <button className="secondary-button full" onClick={onSignOut}><X size={16} /> Sign out</button>
+      </div>
+    </Modal>
   );
 }
 
