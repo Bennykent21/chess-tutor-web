@@ -357,7 +357,7 @@ function App() {
             />
           )}
           {tab === "learn" && <LearnView onPractice={startLesson} />}
-          {tab === "play" && <PlayView />}
+          {tab === "play" && <PlayView authUser={authUser} cloudSyncedFor={cloudSyncedFor} />}
           {tab === "review" && <ReviewView due={progress.reviewDue} onComplete={completeReview} />}
         </main>
       </div>
@@ -718,7 +718,13 @@ function LearnView({ onPractice }: { onPractice: (lesson: Lesson) => void }) {
   );
 }
 
-function PlayView() {
+function PlayView({
+  authUser,
+  cloudSyncedFor
+}: {
+  authUser: AuthUser | null;
+  cloudSyncedFor: string | null;
+}) {
   const [game, setGame] = useState(() => new Chess());
   const [orientation, setOrientation] = useState<Orientation>("w");
   const [selected, setSelected] = useState<Square | null>(null);
