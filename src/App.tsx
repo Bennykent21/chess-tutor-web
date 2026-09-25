@@ -66,13 +66,31 @@ const trainingPositions: Puzzle[] = [
     success: "Mate. The queen seals the only escape squares while your king protects g7."
   },
   {
-    title: "Centralize before you attack",
+    title: "Develop with tempo",
     category: "Opening",
-    fen: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1",
-    goal: "Build the position before chasing tactics.",
-    hint: "Ask which move claims central space and opens a diagonal for a bishop.",
-    expected: "d2d4",
-    success: "Good. You establish a second central pawn and unlock the c1 bishop."
+    fen: "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3",
+    goal: "Continue development and place a bishop on an active diagonal.",
+    hint: "Develop the bishop toward the sensitive f7 square.",
+    expected: "f1c4",
+    success: "Good. Bc4 develops with purpose and puts immediate pressure on f7."
+  },
+  {
+    title: "Royal knight fork",
+    category: "Tactics",
+    fen: "1r1qk3/8/8/4N3/8/8/8/4K3 w - - 0 1",
+    goal: "Win material by forking the queen and rook.",
+    hint: "Find a knight square that attacks both d8 and b8 at once.",
+    expected: "e5c6",
+    success: "Fork found. Nc6 attacks the queen on d8 and rook on b8 simultaneously."
+  },
+  {
+    title: "Back-rank checkmate",
+    category: "Blunder Patterns",
+    fen: "6k1/5ppp/8/8/8/8/5PPP/4R1K1 w - - 0 1",
+    goal: "Use the trapped king's lack of escape squares.",
+    hint: "Look for a rook move that checks along the eighth rank.",
+    expected: "e1e8",
+    success: "Checkmate. The rook controls the eighth rank while the black pawns take away the king's escape squares."
   }
 ];
 
@@ -148,24 +166,16 @@ const lessonCatalog: Lesson[] = [...lessons, ...curriculumOnlyLessons];
 const reviewPositions: Puzzle[] = [
   trainingPositions[0],
   {
-    title: "Hanging major pieces",
+    title: "Hanging queen",
     category: "Blunder Patterns",
     fen: "4k3/8/8/8/3q4/8/3R4/4K3 w - - 0 1",
-    goal: "Notice the loose rook before making a move.",
-    hint: "Count attackers and defenders on the rook before calculating deeper.",
+    goal: "Notice the loose queen before making a quiet move.",
+    hint: "Scan for forcing captures first.",
     expected: "d2d4",
-    success: "The review habit is the point: first ask what is attacked before creating a new plan."
+    success: "The rook can simply take the queen. The review habit is to inspect checks and captures before deeper plans."
   },
-  trainingPositions[1],
-  {
-    title: "Back-rank checkmate & luft",
-    category: "Blunder Patterns",
-    fen: "6k1/5ppp/8/8/8/8/5PPP/4R1K1 w - - 0 1",
-    goal: "Find a forcing move before the opponent improves their king safety.",
-    hint: "Look at the back rank and ask whether the king has an escape square.",
-    expected: "e1e8",
-    success: "The rook becomes active on the open file and the king's restricted space makes forcing play possible."
-  }
+  trainingPositions[2],
+  trainingPositions[3]
 ];
 
 const files = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
