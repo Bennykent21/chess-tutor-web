@@ -32,10 +32,15 @@ export function loadProgress(): TutorProgress {
     if (!raw) return defaultProgress;
 
     const parsed = JSON.parse(raw) as Partial<TutorProgress>;
+    const legacySeed = parsed.lastActiveDate === null &&
+      parsed.weeklyAccuracy === 82 &&
+      parsed.reviewDue === 4 &&
+      parsed.streak === 7;
+
     return {
-      weeklyAccuracy: typeof parsed.weeklyAccuracy === "number" ? parsed.weeklyAccuracy : defaultProgress.weeklyAccuracy,
-      reviewDue: typeof parsed.reviewDue === "number" ? parsed.reviewDue : defaultProgress.reviewDue,
-      streak: typeof parsed.streak === "number" ? parsed.streak : defaultProgress.streak,
+      weeklyAccuracy: legacySeed ? 0 : (typeof parsed.weeklyAccuracy === "number" ? parsed.weeklyAccuracy : defaultProgress.weeklyAccuracy),
+      reviewDue: legacySeed ? 0 : (typeof parsed.reviewDue === "number" ? parsed.reviewDue : defaultProgress.reviewDue),
+      streak: legacySeed ? 0 : (typeof parsed.streak === "number" ? parsed.streak : defaultProgress.streak),
       completedLessons: Array.isArray(parsed.completedLessons) ? parsed.completedLessons.filter((x): x is string => typeof x === "string") : [],
       solvedPositions: typeof parsed.solvedPositions === "number" ? parsed.solvedPositions : 0,
       recordedMistakes: typeof parsed.recordedMistakes === "number" ? parsed.recordedMistakes : 0,
