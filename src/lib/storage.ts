@@ -113,3 +113,98 @@ export function saveGameRecord(record: TutorGameRecord) {
     // Local history is an enhancement; the game remains playable if storage is unavailable.
   }
 }
+
+
+export type TutorReviewItem = {
+  puzzleKey: string;
+  dueAt: string;
+  intervalDays: number;
+  repetitions: number;
+  lastResult: "correct" | "wrong" | null;
+};
+
+const REVIEW_KEY = "chess-tutor.review.v1";
+const REVIEW_INTERVALS = [1, 3, 7, 14, 30] as const;
+
+export function loadReviewSchedule(puzzleKeys: string[]): TutorReviewItem[] {
+  if (typeof window === "undefined") {
+    return puzzleKeys.map(puzzleKey => ({
+      puzzleKey,
+      dueAt: new Date().toISOString(),
+      intervalDays: 1,
+      repetitions: 0,
+      lastResult: null
+    }));
+  }
+
+  try {
+    const raw = window.localStorage.getItem(REVIEW_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    const existing = Array.isArray(parsed) ? parsed : [];
+    const byKey = new Map<string, TutorReviewItem>(
+      existing
+        .filter(item =>
+          item &&
+          typeof item.puzzleKey === "string" &&
+          typeof item.dueAt === "string" &&
+          typeof item.intervalDays === "number" &&
+          typeof item.repetitions === "number" &&
+          (item.lastResult === null || item.lastResult === "correct" || item.lastResult === "wrong")
+        )
+        .map(item => [item.puzzleKey, item as TutorReviewItem])
+    );
+
+    const schedule = puzzleKeys.map(puzzleKey => byKey.get(puzzleKey) ?? ({
+      puzzleKey,
+      dueAt: new Date().toISOString(),
+      intervalDays: 1,
+      repetitions: 0,
+      lastResult: null
+    }));
+
+    saveReviewSchedule(schedule);
+    return schedule;
+  } catch {
+    return puzzleKeys.map(puzzleKey => ({
+      puzzleKey,
+      dueAt: new Date().toISOString(),
+      intervalDays: 1,
+      repetitions: 0,
+      lastResult: null
+    }));
+  }
+}
+
+export function saveReviewSchedule(schedule: TutorReviewItem[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(REVIEW_KEY, JSON.stringify(schedule));
+  } catch {
+    // Review persistence is an enhancement; the queue still works in memory.
+  }
+}
+
+export function applyReviewResult(schedule: TutorReviewItem[], puzzleKey: string, correct: boolean): TutorReviewItem[] {
+  const now = new Date();
+  return schedule.map(item => {
+    if (item.puzzleKey !== puzzleKey) return item;
+
+    const nextRepetitions = correct ? item.repetitions + 1 : 0;
+    const intervalIndex = Math.min(nextRepetitions, REVIEW_INTERVALS.length) - 1;
+    const intervalDays = correct && intervalIndex >= 0 ? REVIEW_INTERVALS[intervalIndex] : 1;
+    const dueAt = new Date(now);
+    dueAt.setDate(dueAt.getDate() + intervalDays);
+
+    return {
+      ...item,
+      dueAt: dueAt.toISOString(),
+      intervalDays,
+      repetitions: nextRepetitions,
+      lastResult: correct ? "correct" : "wrong"
+    };
+  });
+}
+
+export function countDueReviews(schedule: TutorReviewItem[], now = new Date()) {
+  return schedule.filter(item => new Date(item.dueAt).getTime() <= now.getTime()).length;
+}
