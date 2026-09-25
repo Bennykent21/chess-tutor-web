@@ -69,3 +69,47 @@ export function touchActivity(progress: TutorProgress): TutorProgress {
     lastActiveDate: today
   };
 }
+
+
+export type TutorGameRecord = {
+  opponent: string;
+  rating: number;
+  result: "W" | "L" | "D";
+  date: string;
+  opening: string;
+  moves: number;
+};
+
+const GAMES_KEY = "chess-tutor.games.v1";
+
+export function loadGameHistory(): TutorGameRecord[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(GAMES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(item =>
+      item &&
+      typeof item.opponent === "string" &&
+      typeof item.rating === "number" &&
+      ["W", "L", "D"].includes(item.result) &&
+      typeof item.date === "string" &&
+      typeof item.opening === "string" &&
+      typeof item.moves === "number"
+    ).slice(0, 20) as TutorGameRecord[];
+  } catch {
+    return [];
+  }
+}
+
+export function saveGameRecord(record: TutorGameRecord) {
+  if (typeof window === "undefined") return;
+  try {
+    const current = loadGameHistory();
+    window.localStorage.setItem(GAMES_KEY, JSON.stringify([record, ...current].slice(0, 20)));
+  } catch {
+    // Local history is an enhancement; the game remains playable if storage is unavailable.
+  }
+}
