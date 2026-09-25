@@ -21,7 +21,7 @@ import {
   Zap
 } from "lucide-react";
 import { curriculumLessons, openingCourses } from "./data/content";
-import { applyReviewResult, countDueReviews, loadGameHistory, loadProgress, loadReviewSchedule, saveGameRecord, saveProgress, saveReviewSchedule, touchActivity, TutorGameRecord, TutorProgress, TutorReviewItem } from "./lib/storage";
+import { applyReviewResult, countDueReviews, loadAttemptHistory, loadGameHistory, loadProgress, loadReviewSchedule, saveAttempt, saveGameRecord, saveProgress, saveReviewSchedule, touchActivity, TutorAttemptRecord, TutorGameRecord, TutorProgress, TutorReviewItem } from "./lib/storage";
 import { AuthUser, getAuthUser, loadCloudGames, loadCloudProfile, loadCloudProgress, loadCloudReviewItems, recordGame, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges, TutorProfile } from "./lib/cloud";
 import { AuthModal } from "./components/AuthModal";
 
@@ -195,6 +195,7 @@ function App() {
   const [reviewSchedule, setReviewSchedule] = useState<TutorReviewItem[]>(() =>
     loadReviewSchedule(reviewPositions.map(item => item.title))
   );
+  const [attemptHistory, setAttemptHistory] = useState<TutorAttemptRecord[]>(() => loadAttemptHistory());
 
   useEffect(() => {
     let active = true;
@@ -282,6 +283,15 @@ function App() {
   }
 
   function recordTrainingResult(correct: boolean, puzzle: Puzzle, lessonTitle?: string) {
+    const attempt: TutorAttemptRecord = {
+      puzzleKey: puzzle.title,
+      category: puzzle.category,
+      correct,
+      createdAt: new Date().toISOString()
+    };
+    saveAttempt(attempt);
+    setAttemptHistory(current => [attempt, ...current].slice(0, 100));
+
     setProgress(current => {
       const active = touchActivity(current);
       const next: TutorProgress = {
@@ -417,7 +427,7 @@ function App() {
           )}
           {tab === "learn" && <LearnView onPractice={startLesson} completedLessons={progress.completedLessons} />}
           {tab === "play" && <PlayView authUser={authUser} cloudSyncedFor={cloudSyncedFor} />}
-          {tab === "review" && <ReviewView due={progress.reviewDue} schedule={reviewSchedule} onComplete={completeReview} />}
+          {tab === "review" && <ReviewView due={progress.reviewDue} schedule={reviewSchedule} attemptHistory={attemptHistory} onComplete={completeReview} />}
         </main>
       </div>
 
@@ -983,10 +993,12 @@ function botScore(move: { captured?: string; san: string; to: string }) {
 function ReviewView({
   due,
   schedule,
+  attemptHistory,
   onComplete
 }: {
   due: number;
   schedule: TutorReviewItem[];
+  attemptHistory: TutorAttemptRecord[];
   onComplete: (puzzle: Puzzle, correct: boolean) => void;
 }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -1007,6 +1019,21 @@ function ReviewView({
       </section>
 
       <section className="review-layout">
+        <div className="review-summary">
+          <span className="surface-label">MISTAKE PATTERNS</span>
+          <div className="pattern-list">
+            {Object.entries(
+              attemptHistory.reduce<Record<string, number>>((counts, attempt) => {
+                if (!attempt.correct) counts[attempt.category] = (counts[attempt.category] ?? 0) + 1;
+                return counts;
+              }, {})
+            ).sort(([, a], [, b]) => b - a).slice(0, 4).map(([category, count]) => (
+              <div className="pattern-row" key={category}><span>{category}</span><b>{count}</b></div>
+            ))}
+            {!attemptHistory.some(attempt => !attempt.correct) && <p className="pattern-empty">No mistakes recorded yet. Your misses will appear here as useful coaching signals.</p>}
+          </div>
+        </div>
+
         <div className="review-summary">
           <span className="surface-label">TODAY</span>
           <strong>{due} positions</strong>
