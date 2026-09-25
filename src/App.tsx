@@ -280,9 +280,7 @@ function App() {
       const active = touchActivity(current);
       const next: TutorProgress = {
         ...active,
-        weeklyAccuracy: correct
-          ? Math.min(99, active.weeklyAccuracy + 1)
-          : Math.max(0, active.weeklyAccuracy - 1),
+        weeklyAccuracy: (() => { const solved = active.solvedPositions + (correct ? 1 : 0); const mistakes = active.recordedMistakes + (correct ? 0 : 1); const attempts = solved + mistakes; return attempts > 0 ? Math.round((solved / attempts) * 100) : active.weeklyAccuracy; })(),
         reviewDue: correct ? active.reviewDue : Math.min(12, active.reviewDue + 1),
         solvedPositions: active.solvedPositions + (correct ? 1 : 0),
         recordedMistakes: active.recordedMistakes + (correct ? 0 : 1),
