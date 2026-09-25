@@ -249,3 +249,18 @@ export async function loadCloudReviewItems(userId: string): Promise<TutorReviewI
     lastResult: row.last_result === "correct" || row.last_result === "wrong" ? row.last_result : null
   }));
 }
+
+
+export async function updateCloudProfile(userId: string, updates: { username: string }) {
+  if (!supabase) return { error: new Error("Supabase is not configured.") };
+
+  const username = updates.username.trim();
+  if (!username) return { error: new Error("Username cannot be empty.") };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ username, updated_at: new Date().toISOString() })
+    .eq("id", userId);
+
+  return { error };
+}
