@@ -431,11 +431,13 @@ function App() {
 function TrainView({
   puzzle,
   onHelp,
-  onResult
+  onResult,
+  profile
 }: {
   puzzle: Puzzle;
   onHelp: () => void;
   onResult: (correct: boolean) => void;
+  profile: TutorProfile | null;
 }) {
   const [game, setGame] = useState(() => new Chess(puzzle.fen));
   const [selected, setSelected] = useState<Square | null>(null);
