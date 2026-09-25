@@ -283,6 +283,26 @@ function App() {
   }
 
   function recordTrainingResult(correct: boolean, puzzle: Puzzle, lessonTitle?: string) {
+    setReviewSchedule(current => {
+      const known = current.some(item => item.puzzleKey === puzzle.title);
+      if (!known && !correct) {
+        const added: TutorReviewItem = {
+          puzzleKey: puzzle.title,
+          dueAt: new Date().toISOString(),
+          intervalDays: 1,
+          repetitions: 0,
+          lastResult: "wrong"
+        };
+        const next = [...current, added];
+        saveReviewSchedule(next);
+        return next;
+      }
+      if (!known) return current;
+      const next = applyReviewResult(current, puzzle.title, correct);
+      saveReviewSchedule(next);
+      return next;
+    });
+
     const attempt: TutorAttemptRecord = {
       puzzleKey: puzzle.title,
       category: puzzle.category,
