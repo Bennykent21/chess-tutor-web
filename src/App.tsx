@@ -21,7 +21,7 @@ import {
   Zap
 } from "lucide-react";
 import { curriculumLessons, openingCourses, pastGames } from "./data/content";
-import { loadProgress, saveProgress, touchActivity, TutorProgress } from "./lib/storage";
+import { loadGameHistory, loadProgress, saveGameRecord, saveProgress, touchActivity, TutorGameRecord, TutorProgress } from "./lib/storage";
 import { AuthUser, getAuthUser, loadCloudProgress, recordGame, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges } from "./lib/cloud";
 import { AuthModal } from "./components/AuthModal";
 
@@ -725,6 +725,7 @@ function PlayView({
   authUser: AuthUser | null;
   cloudSyncedFor: string | null;
 }) {
+  const [localGames, setLocalGames] = useState<TutorGameRecord[]>(() => loadGameHistory());
   const [game, setGame] = useState(() => new Chess());
   const [orientation, setOrientation] = useState<Orientation>("w");
   const [selected, setSelected] = useState<Square | null>(null);
@@ -770,6 +771,17 @@ function PlayView({
     const result = game.isCheckmate()
       ? (game.turn() === "b" ? "win" : "loss")
       : "draw";
+
+    const localRecord: TutorGameRecord = {
+      opponent: botName,
+      rating: botElo,
+      result: result === "win" ? "W" : result === "loss" ? "L" : "D",
+      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      opening: "Local game",
+      moves: Math.ceil(game.history().length / 2)
+    };
+    saveGameRecord(localRecord);
+    setLocalGames(current => [localRecord, ...current].slice(0, 20));
 
     if (authUser && cloudSyncedFor === authUser.id) {
       void recordGame({
@@ -837,7 +849,7 @@ function PlayView({
 
         <article className="recent-card">
           <div className="card-head"><div><span className="surface-label">RECENT GAMES</span><h3>Past games</h3></div><History size={16} /></div>
-          {pastGames.map(gameRow => (
+          {(localGames.length ? localGames : pastGames).map(gameRow => (
             <button className="game-row game-row-button" key={gameRow.opponent + gameRow.date} onClick={startGame}>
               <span className="result-badge">{gameRow.result}</span>
               <div className="game-opponent"><b>{gameRow.opponent}</b><span>{gameRow.rating} · {gameRow.opening}</span></div>
