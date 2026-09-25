@@ -199,3 +199,30 @@ function countPgnMoves(pgn: string) {
 
   return moveTokens.length ? Math.ceil(moveTokens.length / 2) : 0;
 }
+
+
+export type TutorProfile = {
+  username: string;
+  title: string;
+  rating: number;
+  puzzleRating: number;
+};
+
+export async function loadCloudProfile(userId: string): Promise<TutorProfile | null> {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("username, title, rating, puzzle_rating")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return {
+    username: data.username || "Player",
+    title: data.title || "Novice",
+    rating: data.rating ?? 1200,
+    puzzleRating: data.puzzle_rating ?? 700
+  };
+}
