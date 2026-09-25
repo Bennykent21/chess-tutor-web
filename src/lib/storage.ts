@@ -238,8 +238,11 @@ export function loadAttemptHistory(): TutorAttemptRecord[] {
       typeof item.puzzleKey === "string" &&
       typeof item.category === "string" &&
       typeof item.correct === "boolean" &&
+      (typeof item.hintsUsed === "number" || item.hintsUsed === undefined) &&
       typeof item.createdAt === "string"
-    ).slice(0, 100) as TutorAttemptRecord[];
+    )
+    .slice(0, 100)
+    .map(item => ({ ...item, hintsUsed: typeof item.hintsUsed === "number" ? item.hintsUsed : 0 })) as TutorAttemptRecord[];
   } catch {
     return [];
   }
