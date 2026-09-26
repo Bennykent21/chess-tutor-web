@@ -196,9 +196,9 @@ function playCue(kind: "success" | "error") {
     gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.16);
     oscillator.connect(gain);
     gain.connect(context.destination);
+    oscillator.addEventListener("ended", () => { void context.close(); }, { once: true });
     oscillator.start();
     oscillator.stop(context.currentTime + 0.17);
-    void context.close();
   } catch {
     // Audio is optional and can be unavailable or blocked by the browser.
   }
