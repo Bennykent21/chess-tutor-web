@@ -185,7 +185,8 @@ export async function loadCloudGames(userId: string): Promise<import("./storage"
       year: "numeric"
     }),
     opening: "Local game",
-    moves: countPgnMoves(row.pgn)
+    moves: countPgnMoves(row.pgn),
+    pgn: row.pgn ?? undefined
   }));
 }
 
