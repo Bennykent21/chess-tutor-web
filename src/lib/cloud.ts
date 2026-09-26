@@ -168,7 +168,7 @@ export async function loadCloudGames(userId: string): Promise<import("./storage"
 
   const { data, error } = await supabase
     .from("games")
-    .select("opponent_name, opponent_elo, result, pgn, started_at, finished_at")
+    .select("id, opponent_name, opponent_elo, result, pgn, started_at, finished_at")
     .eq("user_id", userId)
     .order("started_at", { ascending: false })
     .limit(20);
@@ -176,6 +176,7 @@ export async function loadCloudGames(userId: string): Promise<import("./storage"
   if (error || !data) return [];
 
   return data.map(row => ({
+    id: row.id,
     opponent: row.opponent_name,
     rating: row.opponent_elo ?? 0,
     result: row.result === "win" ? "W" : row.result === "loss" ? "L" : "D",
