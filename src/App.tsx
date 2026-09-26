@@ -1357,7 +1357,7 @@ function ReviewSession({
     }
     const next = index + 1;
     setIndex(next);
-    setGame(new Chess(reviewPositions[next].fen));
+    setGame(new Chess(positions[next].fen));
     setSelected(null);
     setRevealed(false);
     setResult("idle");
