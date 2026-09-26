@@ -49,3 +49,5 @@ The app remains usable without Supabase credentials. In that mode, progress, rev
 ## Browser engine
 
 Play uses Stockfish.js 19 in a browser Web Worker for computer moves, and Train uses the same engine for live position evaluation. The lite single-threaded WASM build is used to keep the browser payload smaller than the full engine. Stockfish.js is GPL-3.0 licensed; see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) for the third-party notice.
+
+CI validates the browser engine build with the same Vite/TypeScript production command used for deployment.
