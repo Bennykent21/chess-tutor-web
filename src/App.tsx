@@ -957,23 +957,41 @@ function PlayView({
   useEffect(() => {
     if (!started || game.turn() !== "b" || game.isGameOver()) return;
 
-    const timer = window.setTimeout(() => {
-      const next = new Chess(game.fen());
-      const moves = next.moves({ verbose: true });
-      const ordered = [...moves].sort((a, b) => botScore(b) - botScore(a));
-      const pick = ordered[0];
-      if (!pick) return;
-      const played = next.move({ from: pick.from, to: pick.to, promotion: pick.promotion || "q" });
+    let active = true;
+    const fen = game.fen();
+    const delay = botElo >= 1400 ? 450 : botElo >= 1000 ? 300 : 200;
+
+    const timer = window.setTimeout(async () => {
+      const bestMove = await findBestMove(fen, {
+        depth: botElo >= 1400 ? 10 : botElo >= 1000 ? 9 : 7,
+        skillLevel: botElo >= 1400 ? 12 : botElo >= 1000 ? 7 : 3
+      });
+
+      if (!active || !bestMove) return;
+
+      const next = new Chess(fen);
+      const legal = next.moves({ verbose: true });
+      const selectedMove = legal.find(move => move.from + move.to === bestMove || move.from + move.to + (move.promotion ?? "") === bestMove);
+      if (!selectedMove) return;
+
+      const played = next.move({
+        from: selectedMove.from,
+        to: selectedMove.to,
+        promotion: selectedMove.promotion || "q"
+      });
       if (!played) return;
+
       setGame(next);
       setLastMove({ from: played.from, to: played.to });
       setSelected(null);
       setStatus(next.isCheckmate() ? "Checkmate. Game finished." : next.isCheck() ? botName + " found check. Your turn." : "Your turn.");
-    }, botElo >= 1400 ? 550 : botElo >= 1000 ? 400 : 280);
+    }, delay);
 
-    return () => window.clearTimeout(timer);
-  }, [started, game, botElo]);
-
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [started, game, botElo, botName]);
   useEffect(() => {
     if (!started || !game.isGameOver() || recordedGame) return;
 
@@ -1035,7 +1053,7 @@ function PlayView({
   return (
     <>
       <section className="hero-row">
-        <div><span className="eyebrow">PLAY</span><h1>Play with a purpose</h1><p>This is a local training game: you play White, Wayne replies automatically, and the board follows real chess rules.</p></div>
+        <div><span className="eyebrow">PLAY</span><h1>Play with a purpose</h1><p>This is a local training game: you play White, and Stockfish replies in your browser while the board follows real chess rules.</p></div>
         <button className="brass-button" onClick={startGame}><Play size={16} /> {started ? "New game" : "Start game"}</button>
       </section>
 
@@ -1043,7 +1061,7 @@ function PlayView({
         {started ? (
           <div className="game-card">
             <div className="game-card-head">
-              <div><span className="surface-label">LIVE GAME</span><h2>You vs {botName}</h2><p>{botElo} Elo · local bot</p></div>
+              <div><span className="surface-label">LIVE GAME</span><h2>You vs {botName}</h2><p>{botElo} Elo · Stockfish browser engine</p></div>
               <div className="board-tools"><button className="board-tool" onClick={() => setOrientation(v => v === "w" ? "b" : "w")}><ArrowLeftRight size={17} /></button><button className="board-tool" onClick={startGame}><RotateCcw size={16} /></button></div>
             </div>
             <div className="board-wrap centered-board"><ChessBoard game={game} orientation={orientation} selected={selected} targets={legalTargets} lastMove={lastMove} onSquare={clickSquare} /></div>
@@ -1086,14 +1104,6 @@ function PlayView({
   );
 }
 
-function botScore(move: { captured?: string; san: string; to: string }) {
-  let score = 0;
-  if (move.captured) score += 40;
-  if (move.san.includes("#")) score += 1000;
-  if (move.san.includes("+")) score += 30;
-  if (["d4", "e4", "d5", "e5"].includes(move.to)) score += 8;
-  return score;
-}
 
 function ReviewView({
   due,
