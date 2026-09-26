@@ -1,3 +1,6 @@
+import engineScriptUrl from "stockfish/bin/stockfish-19-lite-single.js?url";
+import engineWasmUrl from "stockfish/bin/stockfish-19-lite-single.wasm?url";
+
 export type EngineEvaluation = {
   depth: number;
   scoreCp: number | null;
@@ -6,17 +9,18 @@ export type EngineEvaluation = {
   principalVariation: string[];
 };
 
-type PendingRequest = {
+type ActiveAnalysis = {
+  sideToMove: "w" | "b";
+  evaluation: EngineEvaluation;
   resolve: (value: EngineEvaluation) => void;
   reject: (reason?: unknown) => void;
 };
 
-import engineScriptUrl from "stockfish/bin/stockfish-19-lite-single.js?url";
-import engineWasmUrl from "stockfish/bin/stockfish-19-lite-single.wasm?url";
-
 let worker: Worker | null = null;
 let readyPromise: Promise<void> | null = null;
-let pending: PendingRequest | null = null;
+let readyResolve: (() => void) | null = null;
+let readyReject: ((reason?: unknown) => void) | null = null;
+let active: ActiveAnalysis | null = null;
 
 function parseInfo(line: string, sideToMove: "w" | "b", latest: EngineEvaluation): EngineEvaluation {
   const depthMatch = line.match(/\bdepth (\d+)/);
@@ -60,46 +64,53 @@ function ensureWorker(): Promise<void> {
   if (readyPromise) return readyPromise;
 
   readyPromise = new Promise((resolve, reject) => {
+    readyResolve = resolve;
+    readyReject = reject;
+
     try {
       worker = createWorker();
       worker.addEventListener("message", event => {
         const line = typeof event.data === "string" ? event.data : "";
-        if (line === "uciok" || line === "readyok") {
-          if (line === "readyok") resolve();
+
+        if (line === "readyok") {
+          readyResolve?.();
+          readyResolve = null;
+          readyReject = null;
+          return;
+        }
+
+        if (!active) return;
+
+        if (line.startsWith("info ")) {
+          active.evaluation = parseInfo(line, active.sideToMove, active.evaluation);
           return;
         }
 
         if (line.startsWith("bestmove ")) {
-          const move = line.split(/\s+/)[1] ?? null;
-          if (pending) {
-            const request = pending;
-            pending = null;
-            request.resolve((request as unknown as { evaluation?: EngineEvaluation }).evaluation ?? {
-              depth: 0,
-              scoreCp: null,
-              mateIn: null,
-              bestMove: move,
-              principalVariation: []
-            });
-          }
+          active.evaluation.bestMove = line.split(/\s+/)[1] ?? null;
+          const request = active;
+          active = null;
+          request.resolve(request.evaluation);
         }
       });
 
       worker.addEventListener("error", event => {
-        if (pending) {
-          const request = pending;
-          pending = null;
-          request.reject(event.error ?? new Error("Stockfish worker failed."));
-        }
+        const error = event.error ?? new Error("Stockfish worker failed.");
+        active?.reject(error);
+        active = null;
+        readyReject?.(error);
+        readyResolve = null;
+        readyReject = null;
         readyPromise = null;
         worker = null;
-        reject(event.error ?? new Error("Stockfish worker failed."));
       });
 
       worker.postMessage("uci");
       worker.postMessage("isready");
     } catch (error) {
       readyPromise = null;
+      readyResolve = null;
+      readyReject = null;
       worker = null;
       reject(error);
     }
@@ -118,49 +129,30 @@ export async function analysePosition(
     throw new Error("Stockfish worker is unavailable.");
   }
 
-  if (pending) {
+  if (active) {
     worker.postMessage("stop");
-    pending.reject(new Error("Superseded by a newer analysis."));
-    pending = null;
+    active.reject(new Error("Superseded by a newer analysis."));
+    active = null;
   }
 
   const depth = Math.max(6, Math.min(18, options.depth ?? 10));
   const skillLevel = Math.max(0, Math.min(20, options.skillLevel ?? 20));
   const sideToMove = fen.split(/\s+/)[1] === "b" ? "b" : "w";
-  let evaluation: EngineEvaluation = {
-    depth: 0,
-    scoreCp: null,
-    mateIn: null,
-    bestMove: null,
-    principalVariation: []
-  };
 
   return new Promise((resolve, reject) => {
-    if (!worker) {
-      reject(new Error("Stockfish worker is unavailable."));
-      return;
-    }
-
-    pending = {
-      resolve: value => resolve(value),
+    active = {
+      sideToMove,
+      evaluation: {
+        depth: 0,
+        scoreCp: null,
+        mateIn: null,
+        bestMove: null,
+        principalVariation: []
+      },
+      resolve,
       reject
     };
 
-    const onMessage = (event: MessageEvent) => {
-      const line = typeof event.data === "string" ? event.data : "";
-      if (line.startsWith("info ")) {
-        evaluation = parseInfo(line, sideToMove, evaluation);
-      }
-      if (line.startsWith("bestmove ")) {
-        evaluation.bestMove = line.split(/\s+/)[1] ?? null;
-        const request = pending;
-        pending = null;
-        worker?.removeEventListener("message", onMessage);
-        request?.resolve(evaluation);
-      }
-    };
-
-    worker.addEventListener("message", onMessage);
     worker.postMessage(`setoption name Skill Level value ${skillLevel}`);
     worker.postMessage("position fen " + fen);
     worker.postMessage(`go depth ${depth}`);
@@ -172,19 +164,20 @@ export async function findBestMove(
   options: { depth?: number; skillLevel?: number } = {}
 ): Promise<string | null> {
   try {
-    const evaluation = await analysePosition(fen, options);
-    return evaluation.bestMove;
+    return (await analysePosition(fen, options)).bestMove;
   } catch {
     return null;
   }
 }
 
 export function disposeEngine() {
-  if (pending) {
-    pending.reject(new Error("Stockfish engine disposed."));
-    pending = null;
+  if (active) {
+    active.reject(new Error("Stockfish engine disposed."));
+    active = null;
   }
   worker?.terminate();
   worker = null;
   readyPromise = null;
+  readyResolve = null;
+  readyReject = null;
 }
