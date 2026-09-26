@@ -45,3 +45,7 @@ VITE_SUPABASE_ANON_KEY=
 Apply `supabase/migrations/0001_chess_tutor_core.sql` to the shared project before using cloud sync.
 
 The app remains usable without Supabase credentials. In that mode, progress, review scheduling, and recent games are stored locally in the browser. When a user signs in, progress, review items, training attempts, player profile, and completed games can sync to Supabase. Never put a Supabase service-role key in the web app; only the public anon key belongs in `VITE_SUPABASE_ANON_KEY`.
+
+## Browser engine
+
+Play uses Stockfish.js 19 in a browser Web Worker for computer moves, and Train uses the same engine for live position evaluation. The lite single-threaded WASM build is used to keep the browser payload smaller than the full engine. Stockfish.js is GPL-3.0 licensed; see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) for the third-party notice.
