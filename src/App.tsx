@@ -711,8 +711,8 @@ function TrainView({
             <div className="issue-icon"><Gauge size={18} /></div>
             <div className="issue-copy">
               <span className="surface-label">POSITION SIGNAL</span>
-              <strong>{solved ? "Training point secured" : mistake ? "Mistake recorded locally" : "Scan checks, captures, threats"}</strong>
-              <span>{engineThinking ? "Engine calculating…" : engineEvaluation ? "Stockfish depth " + engineEvaluation.depth : (hintLevel ? "Hint level " + hintLevel + " / 3" : "No hint used")}</span>
+              <strong>{solved ? "Training point secured" : mistake ? "Mistake recorded locally" : engineThinking ? "Stockfish is calculating" : engineEvaluation ? "Engine feedback ready" : "Scan checks, captures, threats"}</strong>
+              <span>{engineThinking ? "Engine calculating…" : engineEvaluation?.principalVariation.length ? "Best line · " + formatPrincipalVariation(game.fen(), engineEvaluation.principalVariation) : (engineEvaluation ? "Stockfish depth " + engineEvaluation.depth : (hintLevel ? "Hint level " + hintLevel + " / 3" : "Engine unavailable"))}</span>
             </div>
           </div>
 
@@ -731,6 +731,23 @@ function TrainView({
       </section>
     </>
   );
+}
+
+function formatPrincipalVariation(fen: string, principalVariation: string[]) {
+  if (!principalVariation.length) return "No principal variation yet";
+  const line = new Chess(fen);
+  return principalVariation.slice(0, 5).map(uci => {
+    const legal = line.moves({ verbose: true }).find(move =>
+      move.from + move.to + (move.promotion ?? "") === uci
+    );
+    if (!legal) return uci;
+    const played = line.move({
+      from: legal.from,
+      to: legal.to,
+      promotion: legal.promotion || "q"
+    });
+    return played?.san ?? uci;
+  }).join(" ");
 }
 
 function formatEvaluation(evaluation: EngineEvaluation | null) {
@@ -967,11 +984,14 @@ function PlayView({
         skillLevel: botElo >= 1400 ? 12 : botElo >= 1000 ? 7 : 3
       });
 
-      if (!active || !bestMove) return;
+      if (!active) return;
 
       const next = new Chess(fen);
       const legal = next.moves({ verbose: true });
-      const selectedMove = legal.find(move => move.from + move.to === bestMove || move.from + move.to + (move.promotion ?? "") === bestMove);
+      const engineMove = bestMove
+        ? legal.find(move => move.from + move.to === bestMove || move.from + move.to + (move.promotion ?? "") === bestMove)
+        : undefined;
+      const selectedMove = engineMove ?? [...legal].sort((a, b) => fallbackBotScore(b) - fallbackBotScore(a))[0];
       if (!selectedMove) return;
 
       const played = next.move({
@@ -1104,6 +1124,15 @@ function PlayView({
   );
 }
 
+
+function fallbackBotScore(move: { captured?: string; san: string; to: string }) {
+  let score = 0;
+  if (move.captured) score += 40;
+  if (move.san.includes("#")) score += 1000;
+  if (move.san.includes("+")) score += 30;
+  if (["d4", "e4", "d5", "e5"].includes(move.to)) score += 8;
+  return score;
+}
 
 function ReviewView({
   due,
