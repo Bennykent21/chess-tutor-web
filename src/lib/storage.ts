@@ -77,12 +77,14 @@ export function touchActivity(progress: TutorProgress): TutorProgress {
 
 
 export type TutorGameRecord = {
+  id?: string;
   opponent: string;
   rating: number;
   result: "W" | "L" | "D";
   date: string;
   opening: string;
   moves: number;
+  pgn?: string;
 };
 
 const GAMES_KEY = "chess-tutor.games.v1";
@@ -102,7 +104,9 @@ export function loadGameHistory(): TutorGameRecord[] {
       ["W", "L", "D"].includes(item.result) &&
       typeof item.date === "string" &&
       typeof item.opening === "string" &&
-      typeof item.moves === "number"
+      typeof item.moves === "number" &&
+      (item.id === undefined || typeof item.id === "string") &&
+      (item.pgn === undefined || typeof item.pgn === "string")
     ).slice(0, 20) as TutorGameRecord[];
   } catch {
     return [];
@@ -159,13 +163,19 @@ export function loadReviewSchedule(puzzleKeys: string[]): TutorReviewItem[] {
         .map(item => [item.puzzleKey, item as TutorReviewItem])
     );
 
-    const schedule = puzzleKeys.map(puzzleKey => byKey.get(puzzleKey) ?? ({
-      puzzleKey,
-      dueAt: new Date().toISOString(),
-      intervalDays: 1,
-      repetitions: 0,
-      lastResult: null
-    }));
+    const requested = new Set(puzzleKeys);
+    const schedule = [
+      ...puzzleKeys.map(puzzleKey => byKey.get(puzzleKey) ?? ({
+        puzzleKey,
+        dueAt: new Date().toISOString(),
+        intervalDays: 1,
+        repetitions: 0,
+        lastResult: null
+      })),
+      ...existing
+        .filter(item => item && typeof item.puzzleKey === "string" && !requested.has(item.puzzleKey))
+        .map(item => item as TutorReviewItem)
+    ];
 
     saveReviewSchedule(schedule);
     return schedule;
@@ -297,5 +307,77 @@ export function saveAttempt(record: TutorAttemptRecord) {
     window.localStorage.setItem(ATTEMPTS_KEY, JSON.stringify([record, ...current].slice(0, 100)));
   } catch {
     // Attempt history is an enhancement; training remains functional if storage is unavailable.
+  }
+}
+
+
+export type TutorGameMistake = {
+  key: string;
+  gameId: string;
+  opponent: string;
+  moveNumber: number;
+  san: string;
+  fen: string;
+  category: string;
+  severity: "Inaccuracy" | "Mistake" | "Blunder";
+  expected: string;
+  goal: string;
+  hint: string;
+  success: string;
+  evaluationBefore: number | null;
+  evaluationAfter: number | null;
+  lossCp: number;
+  bestLine: string[];
+  createdAt: string;
+};
+
+const GAME_MISTAKES_KEY = "chess-tutor.game-mistakes.v1";
+
+export function loadGameMistakes(): TutorGameMistake[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(GAME_MISTAKES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(item =>
+      item &&
+      typeof item.key === "string" &&
+      typeof item.gameId === "string" &&
+      typeof item.opponent === "string" &&
+      typeof item.moveNumber === "number" &&
+      typeof item.san === "string" &&
+      typeof item.fen === "string" &&
+      typeof item.category === "string" &&
+      ["Inaccuracy", "Mistake", "Blunder"].includes(item.severity) &&
+      typeof item.expected === "string" &&
+      typeof item.goal === "string" &&
+      typeof item.hint === "string" &&
+      typeof item.success === "string" &&
+      (typeof item.evaluationBefore === "number" || item.evaluationBefore === null) &&
+      (typeof item.evaluationAfter === "number" || item.evaluationAfter === null) &&
+      typeof item.lossCp === "number" &&
+      Array.isArray(item.bestLine) &&
+      typeof item.createdAt === "string"
+    ).slice(0, 100) as TutorGameMistake[];
+  } catch {
+    return [];
+  }
+}
+
+export function saveGameMistakes(records: TutorGameMistake[]) {
+  if (typeof window === "undefined") return;
+
+  try {
+    const current = loadGameMistakes();
+    const byKey = new Map(current.map(item => [item.key, item]));
+    for (const record of records) byKey.set(record.key, record);
+    window.localStorage.setItem(
+      GAME_MISTAKES_KEY,
+      JSON.stringify([...byKey.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 100))
+    );
+  } catch {
+    // Analysis history is an enhancement; review training remains functional if storage is unavailable.
   }
 }
