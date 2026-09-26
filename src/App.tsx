@@ -515,7 +515,7 @@ function App() {
             />
           )}
           {tab === "learn" && <LearnView onPractice={startLesson} completedLessons={progress.completedLessons} />}
-          {tab === "play" && <PlayView authUser={authUser} cloudSyncedFor={cloudSyncedFor} onMistakesFound={mistakes => { saveGameMistakes(mistakes); setGameMistakes(current => { const byKey = new Map(current.map(item => [item.key, item])); mistakes.forEach(item => byKey.set(item.key, item)); return [...byKey.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 100); }); }} />}
+          {tab === "play" && <PlayView authUser={authUser} cloudSyncedFor={cloudSyncedFor} gameMistakes={gameMistakes} onMistakesFound={mistakes => { saveGameMistakes(mistakes); setGameMistakes(current => { const byKey = new Map(current.map(item => [item.key, item])); mistakes.forEach(item => byKey.set(item.key, item)); return [...byKey.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 100); }); }} />}
           {tab === "review" && <ReviewView positions={[...reviewPositions, ...gameMistakes.map(puzzleFromGameMistake)]} due={progress.reviewDue} schedule={reviewSchedule} attemptHistory={attemptHistory} onComplete={completeReview} />}
         </main>
       </div>
@@ -961,10 +961,12 @@ function LearnView({
 function PlayView({
   authUser,
   cloudSyncedFor,
+  gameMistakes,
   onMistakesFound
 }: {
   authUser: AuthUser | null;
   cloudSyncedFor: string | null;
+  gameMistakes: TutorGameMistake[];
   onMistakesFound: (mistakes: TutorGameMistake[]) => void;
 }) {
   const [localGames, setLocalGames] = useState<TutorGameRecord[]>(() => loadGameHistory());
@@ -1005,6 +1007,7 @@ function PlayView({
   const [analysisStatus, setAnalysisStatus] = useState<"idle" | "analyzing" | "complete" | "failed">("idle");
   const [analysisProgress, setAnalysisProgress] = useState({ current: 0, total: 0, label: "" });
   const [analysisMistakes, setAnalysisMistakes] = useState<TutorGameMistake[]>([]);
+  const [selectedGameForAnalysis, setSelectedGameForAnalysis] = useState<TutorGameRecord | null>(null);
 
   const legalTargets = useMemo(
     () => selected
@@ -1191,15 +1194,25 @@ function PlayView({
           <div className="card-head"><div><span className="surface-label">RECENT GAMES</span><h3>Past games</h3></div><History size={16} /></div>
           {localGames.length ? localGames.map(gameRow => (
 
-            <button className="game-row game-row-button" key={gameRow.opponent + gameRow.date} onClick={startGame}>
+            <div className="game-row" key={(gameRow.id ?? "") + gameRow.opponent + gameRow.date}>
+              <button className="game-row-button game-row-main" onClick={startGame}>
+              
               <span className="result-badge">{gameRow.result}</span>
               <div className="game-opponent"><b>{gameRow.opponent}</b><span>{gameRow.rating} · {gameRow.opening}</span></div>
               <span className="mono">{gameRow.moves} moves</span>
               <span className="date-label">{gameRow.date}</span>
-            </button>
+              </button>
+              {gameRow.pgn && <button className="game-analysis-button" onClick={() => setSelectedGameForAnalysis(gameRow)}>Analyse</button>}
+            </div>
           )) : <div className="empty-history"><span className="surface-label">NO GAMES YET</span><p>Finish a local game and it will appear here.</p></div>}
         </article>
       </div>
+
+      {selectedGameForAnalysis && <GameAnalysisModal
+        game={selectedGameForAnalysis}
+        mistakes={gameMistakes.filter(mistake => selectedGameForAnalysis.id ? mistake.gameId === selectedGameForAnalysis.id : mistake.opponent === selectedGameForAnalysis.opponent)}
+        onClose={() => setSelectedGameForAnalysis(null)}
+      />}
 
       {chooserOpen && <Modal title="Choose opponent" onClose={() => setChooserOpen(false)}>
         <div className="opponent-grid">
@@ -1216,6 +1229,104 @@ function PlayView({
   );
 }
 
+
+function GameAnalysisModal({
+  game,
+  mistakes,
+  onClose
+}: {
+  game: TutorGameRecord;
+  mistakes: TutorGameMistake[];
+  onClose: () => void;
+}) {
+  const [selectedPly, setSelectedPly] = useState(0);
+  const history = useMemo(() => {
+    if (!game.pgn) return [];
+    try {
+      const replay = new Chess();
+      replay.loadPgn(game.pgn);
+      return replay.history({ verbose: true });
+    } catch {
+      return [];
+    }
+  }, [game.pgn]);
+
+  const replay = useMemo(() => {
+    const board = new Chess();
+    for (const move of history.slice(0, selectedPly)) {
+      board.move({
+        from: move.from,
+        to: move.to,
+        promotion: move.promotion || "q"
+      });
+    }
+    return board;
+  }, [history, selectedPly]);
+
+  const moveNumber = selectedPly ? Math.ceil(selectedPly / 2) : 0;
+  const activeMistake = mistakes.find(mistake => mistake.key === `${game.id}:${selectedPly}`);
+  const displayedMoves = history.map((move, index) => ({
+    move,
+    index: index + 1,
+    label: move.color === "w" ? `${Math.ceil((index + 1) / 2)}. ${move.san}` : `${Math.ceil((index + 1) / 2)}... ${move.san}`
+  }));
+
+  return (
+    <div className="session-overlay">
+      <div className="analysis-panel">
+        <div className="session-head">
+          <div>
+            <span className="eyebrow">GAME ANALYSIS</span>
+            <h2>You vs {game.opponent}</h2>
+            <p>{game.date} · {game.moves} moves · {mistakes.length} review-ready mistake{mistakes.length === 1 ? "" : "s"}</p>
+          </div>
+          <button className="icon-button" onClick={onClose}><X size={17} /></button>
+        </div>
+
+        <div className="analysis-workspace">
+          <div className="analysis-board-wrap">
+            <div className="board-wrap">
+              <ChessBoard
+                game={replay}
+                orientation="w"
+                selected={null}
+                targets={new Set<string>()}
+                lastMove={selectedPly ? { from: history[selectedPly - 1].from, to: history[selectedPly - 1].to } : null}
+                onSquare={() => undefined}
+              />
+            </div>
+            <div className="analysis-nav">
+              <button className="secondary-button" onClick={() => setSelectedPly(Math.max(0, selectedPly - 1))} disabled={selectedPly === 0}>Previous</button>
+              <span>{moveNumber ? `After move ${moveNumber}` : "Starting position"}</span>
+              <button className="secondary-button" onClick={() => setSelectedPly(Math.min(history.length, selectedPly + 1))} disabled={selectedPly >= history.length}>Next</button>
+            </div>
+          </div>
+
+          <aside className="analysis-side">
+            <div className="coach-card primary">
+              <span className="surface-label">{activeMistake ? activeMistake.severity : "ENGINE REVIEW"}</span>
+              <h2>{activeMistake ? `Move ${activeMistake.moveNumber}: ${activeMistake.san}` : "Replay your game"}</h2>
+              <p>{activeMistake ? activeMistake.success : "Step through the move list. Mistake markers jump directly to positions that the engine found worth reviewing."}</p>
+              {activeMistake && <div className="analysis-engine-line"><span>BEST LINE</span><b>{activeMistake.bestLine.join(" ") || activeMistake.expected}</b></div>}
+            </div>
+
+            <div className="analysis-move-list">
+              {displayedMoves.length ? displayedMoves.map(item => {
+                const itemMistake = mistakes.find(mistake => mistake.key === `${game.id}:${item.index}`);
+                return (
+                  <button key={item.index} className={selectedPly === item.index ? "analysis-move active" : "analysis-move"} onClick={() => setSelectedPly(item.index)}>
+                    <span>{item.label}</span>
+                    {itemMistake && <em>{itemMistake.severity}</em>}
+                  </button>
+                );
+              }) : <p>No saved PGN is available for this game.</p>}
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function fallbackBotScore(move: { captured?: string; san: string; to: string }) {
   let score = 0;
