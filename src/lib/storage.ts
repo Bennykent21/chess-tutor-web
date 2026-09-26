@@ -223,6 +223,47 @@ export type TutorAttemptRecord = {
   createdAt: string;
 };
 
+export type TutorSettings = {
+  coachDetail: "detailed" | "concise";
+  showLegalMoves: boolean;
+  soundCues: boolean;
+};
+
+const SETTINGS_KEY = "chess-tutor.settings.v1";
+
+export const defaultSettings: TutorSettings = {
+  coachDetail: "detailed",
+  showLegalMoves: true,
+  soundCues: true
+};
+
+export function loadSettings(): TutorSettings {
+  if (typeof window === "undefined") return defaultSettings;
+
+  try {
+    const raw = window.localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return defaultSettings;
+    const parsed = JSON.parse(raw) as Partial<TutorSettings>;
+    return {
+      coachDetail: parsed.coachDetail === "concise" ? "concise" : "detailed",
+      showLegalMoves: typeof parsed.showLegalMoves === "boolean" ? parsed.showLegalMoves : true,
+      soundCues: typeof parsed.soundCues === "boolean" ? parsed.soundCues : true
+    };
+  } catch {
+    return defaultSettings;
+  }
+}
+
+export function saveSettings(settings: TutorSettings) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // Settings are an enhancement; the product remains functional if storage is unavailable.
+  }
+}
+
+
 const ATTEMPTS_KEY = "chess-tutor.attempts.v1";
 
 export function loadAttemptHistory(): TutorAttemptRecord[] {
