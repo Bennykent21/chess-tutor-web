@@ -9,18 +9,27 @@ export type EngineEvaluation = {
   principalVariation: string[];
 };
 
-type ActiveAnalysis = {
-  sideToMove: "w" | "b";
-  evaluation: EngineEvaluation;
+type AnalysisRequest = {
+  fen: string;
+  depth: number;
+  skillLevel: number;
   resolve: (value: EngineEvaluation) => void;
   reject: (reason?: unknown) => void;
 };
 
+type ActiveAnalysis = AnalysisRequest & {
+  sideToMove: "w" | "b";
+  evaluation: EngineEvaluation;
+  superseded: boolean;
+};
+
 let worker: Worker | null = null;
+let workerUrl: string | null = null;
 let readyPromise: Promise<void> | null = null;
 let readyResolve: (() => void) | null = null;
 let readyReject: ((reason?: unknown) => void) | null = null;
 let active: ActiveAnalysis | null = null;
+let queued: AnalysisRequest | null = null;
 
 function parseInfo(line: string, sideToMove: "w" | "b", latest: EngineEvaluation): EngineEvaluation {
   const depthMatch = line.match(/\bdepth (\d+)/);
@@ -45,19 +54,43 @@ function parseInfo(line: string, sideToMove: "w" | "b", latest: EngineEvaluation
 }
 
 function createWorker(): Worker {
-  const source = `
-self.Module = {
-  locateFile: function(path) {
-    return ${JSON.stringify(engineWasmUrl)};
-  }
-};
-importScripts(${JSON.stringify(engineScriptUrl)});
-`;
+  const source = [
+    "self.Module = {",
+    "  locateFile: function(path) {",
+    `    return ${JSON.stringify(engineWasmUrl)};`,
+    "  }",
+    "};",
+    `importScripts(${JSON.stringify(engineScriptUrl)});`
+  ].join("\n");
+
   const blob = new Blob([source], { type: "application/javascript" });
-  const url = URL.createObjectURL(blob);
-  const nextWorker = new Worker(url);
-  URL.revokeObjectURL(url);
-  return nextWorker;
+  workerUrl = URL.createObjectURL(blob);
+  return new Worker(workerUrl);
+}
+
+function startAnalysis(request: AnalysisRequest) {
+  if (!worker) {
+    request.reject(new Error("Stockfish worker is unavailable."));
+    return;
+  }
+
+  const sideToMove = request.fen.split(/\s+/)[1] === "b" ? "b" : "w";
+  active = {
+    ...request,
+    sideToMove,
+    superseded: false,
+    evaluation: {
+      depth: 0,
+      scoreCp: null,
+      mateIn: null,
+      bestMove: null,
+      principalVariation: []
+    }
+  };
+
+  worker.postMessage(`setoption name Skill Level value ${request.skillLevel}`);
+  worker.postMessage("position fen " + request.fen);
+  worker.postMessage(`go depth ${request.depth}`);
 }
 
 function ensureWorker(): Promise<void> {
@@ -86,23 +119,38 @@ function ensureWorker(): Promise<void> {
           return;
         }
 
-        if (line.startsWith("bestmove ")) {
-          active.evaluation.bestMove = line.split(/\s+/)[1] ?? null;
-          const request = active;
-          active = null;
-          request.resolve(request.evaluation);
+        if (!line.startsWith("bestmove ")) return;
+
+        const finished = active;
+        active = null;
+
+        if (!finished.superseded) {
+          finished.evaluation.bestMove = line.split(/\s+/)[1] ?? null;
+          finished.resolve(finished.evaluation);
+        }
+
+        if (queued) {
+          const next = queued;
+          queued = null;
+          startAnalysis(next);
         }
       });
 
       worker.addEventListener("error", event => {
         const error = event.error ?? new Error("Stockfish worker failed.");
         active?.reject(error);
+        queued?.reject(error);
         active = null;
+        queued = null;
         readyReject?.(error);
         readyResolve = null;
         readyReject = null;
         readyPromise = null;
         worker = null;
+        if (workerUrl) {
+          URL.revokeObjectURL(workerUrl);
+          workerUrl = null;
+        }
       });
 
       worker.postMessage("uci");
@@ -112,6 +160,10 @@ function ensureWorker(): Promise<void> {
       readyResolve = null;
       readyReject = null;
       worker = null;
+      if (workerUrl) {
+        URL.revokeObjectURL(workerUrl);
+        workerUrl = null;
+      }
       reject(error);
     }
   });
@@ -125,37 +177,30 @@ export async function analysePosition(
 ): Promise<EngineEvaluation> {
   await ensureWorker();
 
-  if (!worker) {
-    throw new Error("Stockfish worker is unavailable.");
-  }
-
-  if (active) {
-    worker.postMessage("stop");
-    active.reject(new Error("Superseded by a newer analysis."));
-    active = null;
-  }
-
-  const depth = Math.max(6, Math.min(18, options.depth ?? 10));
-  const skillLevel = Math.max(0, Math.min(20, options.skillLevel ?? 20));
-  const sideToMove = fen.split(/\s+/)[1] === "b" ? "b" : "w";
+  const request: AnalysisRequest = {
+    fen,
+    depth: Math.max(6, Math.min(18, options.depth ?? 10)),
+    skillLevel: Math.max(0, Math.min(20, options.skillLevel ?? 20)),
+    resolve: () => undefined,
+    reject: () => undefined
+  };
 
   return new Promise((resolve, reject) => {
-    active = {
-      sideToMove,
-      evaluation: {
-        depth: 0,
-        scoreCp: null,
-        mateIn: null,
-        bestMove: null,
-        principalVariation: []
-      },
-      resolve,
-      reject
-    };
+    request.resolve = resolve;
+    request.reject = reject;
 
-    worker.postMessage(`setoption name Skill Level value ${skillLevel}`);
-    worker.postMessage("position fen " + fen);
-    worker.postMessage(`go depth ${depth}`);
+    if (active) {
+      active.superseded = true;
+      active.reject(new Error("Superseded by a newer analysis."));
+      if (queued) {
+        queued.reject(new Error("Superseded by a newer analysis."));
+      }
+      queued = request;
+      worker?.postMessage("stop");
+      return;
+    }
+
+    startAnalysis(request);
   });
 }
 
@@ -171,13 +216,17 @@ export async function findBestMove(
 }
 
 export function disposeEngine() {
-  if (active) {
-    active.reject(new Error("Stockfish engine disposed."));
-    active = null;
-  }
+  active?.reject(new Error("Stockfish engine disposed."));
+  queued?.reject(new Error("Stockfish engine disposed."));
+  active = null;
+  queued = null;
   worker?.terminate();
   worker = null;
   readyPromise = null;
   readyResolve = null;
   readyReject = null;
+  if (workerUrl) {
+    URL.revokeObjectURL(workerUrl);
+    workerUrl = null;
+  }
 }
