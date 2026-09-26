@@ -21,7 +21,7 @@ import {
   Zap
 } from "lucide-react";
 import { curriculumLessons, openingCourses } from "./data/content";
-import { applyReviewResult, countDueReviews, loadAttemptHistory, loadGameHistory, loadProgress, loadReviewSchedule, saveAttempt, saveGameRecord, saveProgress, saveReviewSchedule, touchActivity, TutorAttemptRecord, TutorGameRecord, TutorProgress, TutorReviewItem } from "./lib/storage";
+import { applyReviewResult, countDueReviews, loadAttemptHistory, loadGameHistory, loadProgress, loadReviewSchedule, saveAttempt, saveGameRecord, saveProgress, saveReviewSchedule, touchActivity, loadSettings, saveSettings, TutorAttemptRecord, TutorGameRecord, TutorProgress, TutorReviewItem, TutorSettings } from "./lib/storage";
 import { AuthUser, getAuthUser, loadCloudGames, loadCloudProfile, loadCloudProgress, loadCloudReviewItems, recordGame, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges, TutorProfile, updateCloudProfile } from "./lib/cloud";
 import { AuthModal } from "./components/AuthModal";
 
@@ -181,10 +181,35 @@ const reviewPositions: Puzzle[] = [
 const files = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 const ranks = [8, 7, 6, 5, 4, 3, 2, 1] as const;
 
+function playCue(kind: "success" | "error") {
+  if (typeof window === "undefined") return;
+  try {
+    const AudioCtor = window.AudioContext;
+    if (!AudioCtor) return;
+    const context = new AudioCtor();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = kind === "success" ? 660 : 220;
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.045, context.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.16);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.17);
+    void context.close();
+  } catch {
+    // Audio is optional and can be unavailable or blocked by the browser.
+  }
+}
+
+
 function App() {
   const [tab, setTab] = useState<Tab>("train");
   const [mobileMenu, setMobileMenu] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState<TutorSettings>(() => loadSettings());
   const [helpOpen, setHelpOpen] = useState(false);
   const [trainingPuzzle, setTrainingPuzzle] = useState<Puzzle>(trainingPositions[0]);
   const [progress, setProgress] = useState<TutorProgress>(() => loadProgress());
@@ -255,6 +280,10 @@ function App() {
     setProgress(current => current.reviewDue === due ? current : { ...current, reviewDue: due });
     saveReviewSchedule(reviewSchedule);
   }, [reviewSchedule]);
+
+  useEffect(() => {
+    saveSettings(settings);
+  }, [settings]);
 
   useEffect(() => {
     saveProgress(progress);
@@ -444,6 +473,7 @@ function App() {
               onHelp={() => setHelpOpen(true)}
               onResult={(correct, hintsUsed) => recordTrainingResult(correct, trainingPuzzle, trainingPuzzle.title, hintsUsed)}
               profile={profile}
+              settings={settings}
             />
           )}
           {tab === "learn" && <LearnView onPractice={startLesson} completedLessons={progress.completedLessons} />}
@@ -471,12 +501,26 @@ function App() {
 
       {settingsOpen && <Modal title="Training settings" onClose={() => setSettingsOpen(false)}>
         <div className="settings-grid">
-          <SettingRow label="Coach explanations" value="Detailed" />
-          <SettingRow label="Move confirmation" value="Off" />
-          <SettingRow label="Show legal moves" value="On" />
-          <SettingRow label="Sound cues" value="On" />
+          <SettingToggle
+            label="Coach explanations"
+            value={settings.coachDetail === "detailed"}
+            valueLabel={settings.coachDetail === "detailed" ? "Detailed" : "Concise"}
+            onClick={() => setSettings(current => ({ ...current, coachDetail: current.coachDetail === "detailed" ? "concise" : "detailed" }))}
+          />
+          <SettingToggle
+            label="Show legal moves"
+            value={settings.showLegalMoves}
+            valueLabel={settings.showLegalMoves ? "On" : "Off"}
+            onClick={() => setSettings(current => ({ ...current, showLegalMoves: !current.showLegalMoves }))}
+          />
+          <SettingToggle
+            label="Sound cues"
+            value={settings.soundCues}
+            valueLabel={settings.soundCues ? "On" : "Off"}
+            onClick={() => setSettings(current => ({ ...current, soundCues: !current.soundCues }))}
+          />
         </div>
-        <p className="modal-note">These are local UI settings for now. The shared Supabase preferences layer is ready to be connected.</p>
+        <p className="modal-note">Settings are stored on this device and apply immediately to training.</p>
       </Modal>}
 
       {helpOpen && <Modal title="How Chess Tutor works" onClose={() => setHelpOpen(false)}>
@@ -494,12 +538,14 @@ function TrainView({
   puzzle,
   onHelp,
   onResult,
-  profile
+  profile,
+  settings
 }: {
   puzzle: Puzzle;
   onHelp: () => void;
   onResult: (correct: boolean, hintsUsed: number) => void;
   profile: TutorProfile | null;
+  settings: TutorSettings;
 }) {
   const [game, setGame] = useState(() => new Chess(puzzle.fen));
   const [selected, setSelected] = useState<Square | null>(null);
@@ -519,6 +565,10 @@ function TrainView({
     setLastMove(null);
     setMessage(puzzle.goal);
   }, [puzzle]);
+
+  const coachMessage = settings.coachDetail === "detailed"
+    ? message
+    : message.split(/[.!?]/)[0] + (/[.!?]/.test(message) ? "." : "");
 
   const legalTargets = useMemo(
     () => selected
@@ -541,10 +591,12 @@ function TrainView({
       setSelected(null);
 
       if (isCorrect) {
+        if (settings.soundCues) playCue("success");
         setSolved(true);
         setMessage(puzzle.success);
         onResult(true, hintLevel);
       } else {
+        if (settings.soundCues) playCue("error");
         setMistake(true);
         setMessage("That move is legal, but it misses the training objective. Look at the coach note, then retry.");
         onResult(false, hintLevel);
@@ -612,7 +664,7 @@ function TrainView({
               <span style={{ height: solved ? "100%" : "64%" }} />
               <b>{solved ? "M1" : "+0.7"}</b>
             </div>
-            <ChessBoard game={game} orientation={orientation} selected={selected} targets={legalTargets} lastMove={lastMove} onSquare={clickSquare} />
+            <ChessBoard game={game} orientation={orientation} selected={selected} targets={settings.showLegalMoves ? legalTargets : new Set<string>()} lastMove={lastMove} onSquare={clickSquare} />
           </div>
 
           <div className="board-bottom">
@@ -628,7 +680,7 @@ function TrainView({
             <div>
               <span className="surface-label">{solved ? "COACH FEEDBACK" : mistake ? "TRY AGAIN" : "COACH NOTE"}</span>
               <h2>{solved ? "Concrete reason first" : mistake ? "A legal move can still be a bad move" : "Calculate with a checklist"}</h2>
-              <p>{message}</p>
+              <p>{coachMessage}</p>
             </div>
           </div>
 
@@ -1224,8 +1276,23 @@ function AccountModal({
   );
 }
 
-function SettingRow({ label, value }: { label: string; value: string }) {
-  return <div className="setting-row"><span>{label}</span><b>{value}</b></div>;
+function SettingToggle({
+  label,
+  value,
+  valueLabel,
+  onClick
+}: {
+  label: string;
+  value: boolean;
+  valueLabel: string;
+  onClick: () => void;
+}) {
+  return (
+    <button className="setting-row setting-toggle" onClick={onClick} aria-pressed={value}>
+      <span>{label}</span>
+      <b>{valueLabel}<span className={value ? "toggle-dot on" : "toggle-dot"} /></b>
+    </button>
+  );
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
