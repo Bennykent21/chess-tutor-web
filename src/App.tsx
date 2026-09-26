@@ -24,6 +24,7 @@ import { curriculumLessons, openingCourses } from "./data/content";
 import { applyReviewResult, countDueReviews, loadAttemptHistory, loadGameHistory, loadProgress, loadReviewSchedule, saveAttempt, saveGameRecord, saveProgress, saveReviewSchedule, touchActivity, loadSettings, saveSettings, TutorAttemptRecord, TutorGameRecord, TutorProgress, TutorReviewItem, TutorSettings } from "./lib/storage";
 import { AuthUser, getAuthUser, loadCloudGames, loadCloudProfile, loadCloudProgress, loadCloudReviewItems, recordGame, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges, TutorProfile, updateCloudProfile } from "./lib/cloud";
 import { AuthModal } from "./components/AuthModal";
+import { analysePosition, findBestMove, EngineEvaluation } from "./lib/engine";
 
 type Tab = "train" | "learn" | "play" | "review";
 type Orientation = "w" | "b";
@@ -555,6 +556,8 @@ function TrainView({
   const [mistake, setMistake] = useState(false);
   const [solved, setSolved] = useState(false);
   const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
+  const [engineEvaluation, setEngineEvaluation] = useState<EngineEvaluation | null>(null);
+  const [engineThinking, setEngineThinking] = useState(true);
 
   useEffect(() => {
     setGame(new Chess(puzzle.fen));
@@ -570,6 +573,26 @@ function TrainView({
     ? message
     : message.split(/[.!?]/)[0] + (/[.!?]/.test(message) ? "." : "");
 
+  useEffect(() => {
+    let active = true;
+    setEngineThinking(true);
+    setEngineEvaluation(null);
+
+    analysePosition(game.fen(), { depth: 11, skillLevel: 20 })
+      .then(result => {
+        if (!active) return;
+        setEngineEvaluation(result);
+        setEngineThinking(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setEngineThinking(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [game]);
   const legalTargets = useMemo(
     () => selected
       ? new Set(game.moves({ square: selected, verbose: true }).map(move => move.to))
@@ -660,9 +683,9 @@ function TrainView({
           </div>
 
           <div className="board-wrap">
-            <div className="eval-bar" aria-label="Coach evaluation">
-              <span style={{ height: solved ? "100%" : "64%" }} />
-              <b>{solved ? "M1" : "+0.7"}</b>
+            <div className="eval-bar" aria-label="Stockfish evaluation">
+              <span style={{ height: engineEvaluation?.mateIn !== null && engineEvaluation?.mateIn !== undefined && engineEvaluation.mateIn > 0 ? "100%" : String(Math.max(8, Math.min(92, 50 + ((engineEvaluation?.scoreCp ?? 0) / 1200) * 50))) + "%" }} />
+              <b>{engineThinking ? "…" : formatEvaluation(engineEvaluation)}</b>
             </div>
             <ChessBoard game={game} orientation={orientation} selected={selected} targets={settings.showLegalMoves ? legalTargets : new Set<string>()} lastMove={lastMove} onSquare={clickSquare} />
           </div>
@@ -689,7 +712,7 @@ function TrainView({
             <div className="issue-copy">
               <span className="surface-label">POSITION SIGNAL</span>
               <strong>{solved ? "Training point secured" : mistake ? "Mistake recorded locally" : "Scan checks, captures, threats"}</strong>
-              <span>{hintLevel ? "Hint level " + hintLevel + " / 3" : "No hint used"}</span>
+              <span>{engineThinking ? "Engine calculating…" : engineEvaluation ? "Stockfish depth " + engineEvaluation.depth : (hintLevel ? "Hint level " + hintLevel + " / 3" : "No hint used")}</span>
             </div>
           </div>
 
@@ -708,6 +731,16 @@ function TrainView({
       </section>
     </>
   );
+}
+
+function formatEvaluation(evaluation: EngineEvaluation | null) {
+  if (!evaluation) return "—";
+  if (evaluation.mateIn !== null) {
+    return (evaluation.mateIn > 0 ? "M" : "-M") + Math.abs(evaluation.mateIn);
+  }
+  if (evaluation.scoreCp === null) return "0.0";
+  const pawns = evaluation.scoreCp / 100;
+  return (pawns >= 0 ? "+" : "") + pawns.toFixed(1);
 }
 
 function ChessBoard({
