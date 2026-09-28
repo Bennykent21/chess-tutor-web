@@ -277,6 +277,7 @@ function App() {
     ]).then(([cloud, cloudReviews, cloudMistakes, cloudSettings]) => {
       if (!active) return;
       if (cloud) setProgress(cloud);
+      if (cloudSettings) setSettings(cloudSettings);
       if (cloudMistakes.length) {
         setGameMistakes(current => {
           const byKey = new Map(current.map(item => [item.key, item]));
