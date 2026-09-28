@@ -149,3 +149,47 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+
+create table if not exists public.game_mistakes (
+  id text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  game_id uuid,
+  opponent text not null,
+  move_number integer not null,
+  san text not null,
+  fen text not null,
+  category text not null,
+  severity text not null,
+  expected text not null,
+  goal text not null,
+  hint text not null,
+  success text not null,
+  evaluation_before integer,
+  evaluation_after integer,
+  loss_cp integer not null,
+  best_line jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists game_mistakes_user_created_idx
+  on public.game_mistakes(user_id, created_at desc);
+
+alter table public.game_mistakes enable row level security;
+
+create policy "game_mistakes_select_own"
+  on public.game_mistakes for select
+  using (auth.uid() = user_id);
+
+create policy "game_mistakes_insert_own"
+  on public.game_mistakes for insert
+  with check (auth.uid() = user_id);
+
+create policy "game_mistakes_update_own"
+  on public.game_mistakes for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "game_mistakes_delete_own"
+  on public.game_mistakes for delete
+  using (auth.uid() = user_id);
