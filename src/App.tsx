@@ -470,7 +470,7 @@ function App() {
           </button>
           <button className="profile-button" onClick={() => setAuthOpen(true)}>
             <span className="avatar">{(profile?.username?.[0] ?? authUser?.email?.[0] ?? "B").toUpperCase()}</span>
-            <span className="profile-copy"><b>{profile?.username ?? (authUser ? "Account" : "Player")}</b><small>{profile ? String(profile.rating) : authUser?.email ?? "1765"}</small></span>
+            <span className="profile-copy"><b>{profile?.username ?? (authUser ? "Account" : "Guest")}</b><small>{profile ? String(profile.rating) : authUser?.email ?? "Local progress"}</small></span>
           </button>
           <button className="menu-button" aria-label="Menu" onClick={() => setMobileMenu(v => !v)}>
             {mobileMenu ? <X size={19} /> : <Menu size={19} />}
