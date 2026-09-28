@@ -512,7 +512,26 @@ function App() {
           </div>
         </aside>
 
-        <main className="main-content">
+        {gameMistakes.length > 0 && <section className="coaching-insights">
+        <div className="insights-head">
+          <div><span className="eyebrow">COACHING SIGNALS</span><h2>Your game is teaching us what to practise</h2></div>
+          <button className="secondary-button" onClick={() => selectTab("review")}>Open Review <ChevronRight size={13} /></button>
+        </div>
+        <div className="insight-grid">
+          {Object.entries(gameMistakes.reduce<Record<string, number>>((counts, mistake) => {
+            counts[mistake.category] = (counts[mistake.category] ?? 0) + 1;
+            return counts;
+          }, {})).sort(([, a], [, b]) => b - a).slice(0, 4).map(([category, count]) => (
+            <div className="insight-card" key={category}>
+              <span className="surface-label">{category}</span>
+              <strong>{count} {count === 1 ? "position" : "positions"}</strong>
+              <small>Engine-flagged for Review</small>
+            </div>
+          ))}
+        </div>
+      </section>}
+
+      <main className="main-content">
           {tab === "train" && (
             <TrainView
               puzzle={trainingPuzzle}
