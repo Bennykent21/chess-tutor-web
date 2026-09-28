@@ -193,3 +193,23 @@ create policy "game_mistakes_update_own"
 create policy "game_mistakes_delete_own"
   on public.game_mistakes for delete
   using (auth.uid() = user_id);
+
+
+create table if not exists public.user_preferences (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  coach_detail text not null default 'detailed',
+  show_legal_moves boolean not null default true,
+  sound_cues boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_preferences enable row level security;
+
+create policy "user_preferences_select_own"
+  on public.user_preferences for select using (auth.uid() = user_id);
+create policy "user_preferences_insert_own"
+  on public.user_preferences for insert with check (auth.uid() = user_id);
+create policy "user_preferences_update_own"
+  on public.user_preferences for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "user_preferences_delete_own"
+  on public.user_preferences for delete using (auth.uid() = user_id);
