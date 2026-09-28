@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { curriculumLessons, openingCourses } from "./data/content";
 import { applyReviewResult, countDueReviews, loadAttemptHistory, loadGameHistory, loadGameMistakes, loadProgress, loadReviewSchedule, saveAttempt, saveGameMistakes, saveGameRecord, saveProgress, saveReviewSchedule, touchActivity, loadSettings, saveSettings, TutorAttemptRecord, TutorGameMistake, TutorGameRecord, TutorProgress, TutorReviewItem, TutorSettings } from "./lib/storage";
-import { AuthUser, getAuthUser, loadCloudGameMistakes, loadCloudGames, loadCloudProfile, loadCloudProgress, loadCloudReviewItems, recordGame, recordGameMistake, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges, TutorProfile, updateCloudProfile } from "./lib/cloud";
+import { AuthUser, getAuthUser, loadCloudGameMistakes, loadCloudGames, loadCloudProfile, loadCloudProgress, loadCloudReviewItems, loadCloudSettings, recordGame, recordGameMistake, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, saveCloudSettings, signOut, subscribeToAuthChanges, TutorProfile, updateCloudProfile } from "./lib/cloud";
 import { AuthModal } from "./components/AuthModal";
 import { analysePosition, findBestMove, EngineEvaluation } from "./lib/engine";
 import { analyseGame } from "./lib/gameAnalysis";
@@ -272,8 +272,9 @@ function App() {
     Promise.all([
       loadCloudProgress(authUser.id),
       loadCloudReviewItems(authUser.id),
-      loadCloudGameMistakes(authUser.id)
-    ]).then(([cloud, cloudReviews, cloudMistakes]) => {
+      loadCloudGameMistakes(authUser.id),
+      loadCloudSettings(authUser.id)
+    ]).then(([cloud, cloudReviews, cloudMistakes, cloudSettings]) => {
       if (!active) return;
       if (cloud) setProgress(cloud);
       if (cloudMistakes.length) {
@@ -329,7 +330,10 @@ function App() {
 
   useEffect(() => {
     saveSettings(settings);
-  }, [settings]);
+    if (authUser && cloudSyncedFor === authUser.id) {
+      void saveCloudSettings(authUser.id, settings);
+    }
+  }, [settings, authUser, cloudSyncedFor]);
 
   useEffect(() => {
     saveProgress(progress);
