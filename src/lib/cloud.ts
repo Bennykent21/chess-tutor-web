@@ -1,6 +1,6 @@
 import type { TutorProgress, TutorReviewItem } from "./storage";
 import { supabase } from "./supabase";
-import { TutorGameMistake } from "./storage";
+import { TutorGameMistake, TutorSettings } from "./storage";
 
 type CloudProgressRow = {
   user_id: string;
@@ -323,4 +323,32 @@ export async function loadCloudGameMistakes(userId: string): Promise<TutorGameMi
     bestLine: Array.isArray(row.best_line) ? row.best_line : [],
     createdAt: row.created_at
   }));
+}
+
+
+export async function loadCloudSettings(userId: string): Promise<TutorSettings | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("user_preferences")
+    .select("coach_detail, show_legal_moves, sound_cues")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    coachDetail: data.coach_detail === "concise" ? "concise" : "detailed",
+    showLegalMoves: data.show_legal_moves !== false,
+    soundCues: data.sound_cues !== false
+  };
+}
+
+export async function saveCloudSettings(userId: string, settings: TutorSettings) {
+  if (!supabase) return;
+  const { error } = await supabase.from("user_preferences").upsert({
+    user_id: userId,
+    coach_detail: settings.coachDetail,
+    show_legal_moves: settings.showLegalMoves,
+    sound_cues: settings.soundCues,
+    updated_at: new Date().toISOString()
+  });
+  if (error) console.warn("Could not save settings", error);
 }
