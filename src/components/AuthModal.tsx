@@ -14,9 +14,14 @@ export function AuthModal({
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const supabaseConfigured = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
 
   async function submit() {
     setMessage("");
+    if (!supabaseConfigured) {
+      setMessage("Cloud accounts are not configured yet. Your local progress is still available on this device.");
+      return;
+    }
     if (!email.trim() || password.length < 6) {
       setMessage("Enter a valid email and a password with at least 6 characters.");
       return;
@@ -69,12 +74,12 @@ export function AuthModal({
 
         {message && <div className="auth-message">{message}</div>}
 
-        <button className="brass-button full" onClick={submit} disabled={busy}>
+        <button className="brass-button full" onClick={submit} disabled={busy || !supabaseConfigured}>
           {mode === "signIn" ? <LogIn size={16} /> : <UserPlus size={16} />}
           {busy ? "Working…" : mode === "signIn" ? "Sign in" : "Create account"}
         </button>
 
-        <button className="text-action auth-switch" onClick={() => { setMode(mode === "signIn" ? "signUp" : "signIn"); setMessage(""); }}>
+        <button className="text-action auth-switch" disabled={!supabaseConfigured} onClick={() => { setMode(mode === "signIn" ? "signUp" : "signIn"); setMessage(""); }}>
           {mode === "signIn" ? "Create a new account" : "Already have an account? Sign in"}
         </button>
       </div>
