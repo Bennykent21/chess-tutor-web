@@ -982,7 +982,7 @@ function LearnView({
       </section>
 
       <section className="repertoire-strip">
-        <div><span className="eyebrow">OPENING COURSES</span><h2>Repertoire in progress</h2><p>Course progress is seeded locally until the shared backend is connected.</p></div>
+        <div><span className="eyebrow">OPENING COURSES</span><h2>Repertoire in progress</h2><p>Course progress is based on lessons you actually complete. Sign in to sync it across devices.</p></div>
         <div className="repertoire-pills">{openingCourses.slice(0, 4).map(c => {
           const completed = completedLessons.includes(c.name) || completedLessons.includes("The " + c.name);
           return <button key={c.name} className="repertoire-pill" onClick={() => setFilter("Openings")}>{c.name}<b>{completed ? "Complete" : "Open"}</b></button>;
