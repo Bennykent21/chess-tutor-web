@@ -426,18 +426,29 @@ function App() {
       const next = applyReviewResult(current, puzzle.title, correct);
       saveReviewSchedule(next);
       const due = countDueReviews(next);
-      setProgress(progressCurrent => correct
-        ? {
-            ...touchActivity(progressCurrent),
-            reviewDue: due,
-            weeklyAccuracy: Math.min(99, progressCurrent.weeklyAccuracy + 1)
-          }
-        : {
-            ...touchActivity(progressCurrent),
-            recordedMistakes: progressCurrent.recordedMistakes + 1,
-            reviewDue: due
-          }
-      );
+      const reviewAttempt: TutorAttemptRecord = {
+        puzzleKey: puzzle.title,
+        category: puzzle.category,
+        correct,
+        hintsUsed: 0,
+        createdAt: new Date().toISOString()
+      };
+      saveAttempt(reviewAttempt);
+      setAttemptHistory(history => [reviewAttempt, ...history].slice(0, 100));
+
+      setProgress(progressCurrent => {
+        const active = touchActivity(progressCurrent);
+        const solved = active.solvedPositions + (correct ? 1 : 0);
+        const mistakes = active.recordedMistakes + (correct ? 0 : 1);
+        const attempts = solved + mistakes;
+        return {
+          ...active,
+          reviewDue: due,
+          solvedPositions: solved,
+          recordedMistakes: mistakes,
+          weeklyAccuracy: attempts > 0 ? Math.round((solved / attempts) * 100) : active.weeklyAccuracy
+        };
+      });
       const updated = next.find(item => item.puzzleKey === puzzle.title);
       if (authUser && cloudSyncedFor === authUser.id && updated) {
         void recordReviewAttempt({
