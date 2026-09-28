@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { curriculumLessons, openingCourses } from "./data/content";
 import { applyReviewResult, countDueReviews, loadAttemptHistory, loadGameHistory, loadGameMistakes, loadProgress, loadReviewSchedule, saveAttempt, saveGameMistakes, saveGameRecord, saveProgress, saveReviewSchedule, touchActivity, loadSettings, saveSettings, TutorAttemptRecord, TutorGameMistake, TutorGameRecord, TutorProgress, TutorReviewItem, TutorSettings } from "./lib/storage";
-import { AuthUser, getAuthUser, loadCloudGames, loadCloudProfile, loadCloudProgress, loadCloudReviewItems, recordGame, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges, TutorProfile, updateCloudProfile } from "./lib/cloud";
+import { AuthUser, getAuthUser, loadCloudGameMistakes, loadCloudGames, loadCloudProfile, loadCloudProgress, loadCloudReviewItems, recordGame, recordGameMistake, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, signOut, subscribeToAuthChanges, TutorProfile, updateCloudProfile } from "./lib/cloud";
 import { AuthModal } from "./components/AuthModal";
 import { analysePosition, findBestMove, EngineEvaluation } from "./lib/engine";
 import { analyseGame } from "./lib/gameAnalysis";
@@ -271,10 +271,18 @@ function App() {
     let active = true;
     Promise.all([
       loadCloudProgress(authUser.id),
-      loadCloudReviewItems(authUser.id)
-    ]).then(([cloud, cloudReviews]) => {
+      loadCloudReviewItems(authUser.id),
+      loadCloudGameMistakes(authUser.id)
+    ]).then(([cloud, cloudReviews, cloudMistakes]) => {
       if (!active) return;
       if (cloud) setProgress(cloud);
+      if (cloudMistakes.length) {
+        setGameMistakes(current => {
+          const byKey = new Map(current.map(item => [item.key, item]));
+          cloudMistakes.forEach(item => byKey.set(item.key, item));
+          return [...byKey.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 100);
+        });
+      }
       if (cloudReviews.length) {
         setReviewSchedule(current => {
           const byKey = new Map(cloudReviews.map(item => [item.puzzleKey, item]));
