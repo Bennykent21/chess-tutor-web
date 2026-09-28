@@ -378,3 +378,20 @@ button:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
 .analysis-move:hover { background:rgba(255,255,255,.03); }
 .analysis-move.active { background:var(--surface-3);color:var(--text); }
 .analysis-move em { color:var(--coral);font-style:normal;font-size:8px;text-transform:uppercase; }
+
+
+.coaching-insights { margin:0 0 14px;padding:16px;border:1px solid var(--line);border-radius:12px;background:linear-gradient(135deg,var(--surface),var(--surface-2)); }
+.insights-head { display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px; }
+.insights-head h2 { margin:4px 0 0;font-size:15px; }
+.insight-grid { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px; }
+.insight-card { min-width:0;padding:11px;border:1px solid var(--line);border-radius:9px;background:var(--surface); }
+.insight-card strong,.insight-card small { display:block; }
+.insight-card strong { margin-top:5px;font-size:13px; }
+.insight-card small { margin-top:3px;color:var(--text-3);font-size:9px; }
+@media (max-width: 800px) {
+  .insight-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 560px) {
+  .insights-head { align-items:flex-start;flex-direction:column; }
+  .insight-grid { grid-template-columns:1fr 1fr; }
+}
