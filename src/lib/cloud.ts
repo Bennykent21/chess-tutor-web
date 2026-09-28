@@ -1,5 +1,6 @@
 import type { TutorProgress, TutorReviewItem } from "./storage";
 import { supabase } from "./supabase";
+import { TutorGameMistake } from "./storage";
 
 type CloudProgressRow = {
   user_id: string;
@@ -265,4 +266,61 @@ export async function updateCloudProfile(userId: string, updates: { username: st
     .eq("id", userId);
 
   return { error };
+}
+
+
+export async function recordGameMistake(userId: string, mistake: TutorGameMistake) {
+  if (!supabase) return;
+  const { error } = await supabase.from("game_mistakes").upsert({
+    id: mistake.key,
+    user_id: userId,
+    game_id: mistake.gameId,
+    opponent: mistake.opponent,
+    move_number: mistake.moveNumber,
+    san: mistake.san,
+    fen: mistake.fen,
+    category: mistake.category,
+    severity: mistake.severity,
+    expected: mistake.expected,
+    goal: mistake.goal,
+    hint: mistake.hint,
+    success: mistake.success,
+    evaluation_before: mistake.evaluationBefore,
+    evaluation_after: mistake.evaluationAfter,
+    loss_cp: mistake.lossCp,
+    best_line: mistake.bestLine,
+    created_at: mistake.createdAt
+  });
+  if (error) console.warn("Could not save game mistake", error);
+}
+
+export async function loadCloudGameMistakes(userId: string): Promise<TutorGameMistake[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("game_mistakes")
+    .select("id, game_id, opponent, move_number, san, fen, category, severity, expected, goal, hint, success, evaluation_before, evaluation_after, loss_cp, best_line, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error || !data) return [];
+
+  return data.map(row => ({
+    key: row.id,
+    gameId: row.game_id,
+    opponent: row.opponent,
+    moveNumber: row.move_number,
+    san: row.san,
+    fen: row.fen,
+    category: row.category,
+    severity: row.severity,
+    expected: row.expected,
+    goal: row.goal,
+    hint: row.hint,
+    success: row.success,
+    evaluationBefore: row.evaluation_before,
+    evaluationAfter: row.evaluation_after,
+    lossCp: row.loss_cp,
+    bestLine: Array.isArray(row.best_line) ? row.best_line : [],
+    createdAt: row.created_at
+  }));
 }
