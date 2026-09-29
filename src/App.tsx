@@ -561,7 +561,7 @@ function App() {
             <TrainView
               puzzle={trainingPuzzle}
               onHelp={() => setHelpOpen(true)}
-              onResult={(correct, hintsUsed) => recordTrainingResult(correct, trainingPuzzle, activeLessonTitle, hintsUsed)}
+              onResult={(correct, hintsUsed) => recordTrainingResult(correct, trainingPuzzle, activeLessonTitle ?? undefined, hintsUsed)}
               onNextDrill={startFocusedDrill}
               profile={profile}
               settings={settings}
