@@ -568,7 +568,17 @@ function App() {
             />
           )}
           {tab === "learn" && <LearnView onPractice={startLesson} completedLessons={progress.completedLessons} />}
-          {tab === "play" && <PlayView authUser={authUser} cloudSyncedFor={cloudSyncedFor} gameMistakes={gameMistakes} onMistakesFound={mistakes => { saveGameMistakes(mistakes); setGameMistakes(current => { const byKey = new Map(current.map(item => [item.key, item])); mistakes.forEach(item => byKey.set(item.key, item)); return [...byKey.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 100); }); }} />}
+          {tab === "play" && <PlayView authUser={authUser} cloudSyncedFor={cloudSyncedFor} gameMistakes={gameMistakes} onMistakesFound={mistakes => {
+              saveGameMistakes(mistakes);
+              setGameMistakes(current => {
+                const byKey = new Map(current.map(item => [item.key, item]));
+                mistakes.forEach(item => byKey.set(item.key, item));
+                return [...byKey.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 100);
+              });
+              if (authUser && cloudSyncedFor === authUser.id) {
+                void Promise.all(mistakes.map(mistake => recordGameMistake({ userId: authUser.id, mistake })));
+              }
+            }} />}
           {tab === "review" && <ReviewView positions={[...reviewPositions, ...gameMistakes.map(puzzleFromGameMistake)]} due={progress.reviewDue} schedule={reviewSchedule} attemptHistory={attemptHistory} onComplete={completeReview} />}
         </main>
       </div>
