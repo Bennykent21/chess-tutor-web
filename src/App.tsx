@@ -226,6 +226,7 @@ function App() {
   const [settings, setSettings] = useState<TutorSettings>(() => loadSettings());
   const [helpOpen, setHelpOpen] = useState(false);
   const [trainingPuzzle, setTrainingPuzzle] = useState<Puzzle>(trainingPositions[0]);
+  const [activeLessonTitle, setActiveLessonTitle] = useState<string | null>(null);
   const [progress, setProgress] = useState<TutorProgress>(() => loadProgress());
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<TutorProfile | null>(null);
@@ -359,7 +360,15 @@ function App() {
       expected: lesson.move,
       success: lesson.explanation
     });
+    setActiveLessonTitle(lesson.title);
     setTab("train");
+  }
+
+  function startFocusedDrill() {
+    const currentIndex = trainingPositions.findIndex(item => item.title === trainingPuzzle.title);
+    const next = trainingPositions[(currentIndex + 1 + trainingPositions.length) % trainingPositions.length];
+    setTrainingPuzzle(next);
+    setActiveLessonTitle(null);
   }
 
   function recordTrainingResult(correct: boolean, puzzle: Puzzle, lessonTitle: string | undefined, hintsUsed: number) {
@@ -552,7 +561,8 @@ function App() {
             <TrainView
               puzzle={trainingPuzzle}
               onHelp={() => setHelpOpen(true)}
-              onResult={(correct, hintsUsed) => recordTrainingResult(correct, trainingPuzzle, trainingPuzzle.title, hintsUsed)}
+              onResult={(correct, hintsUsed) => recordTrainingResult(correct, trainingPuzzle, activeLessonTitle, hintsUsed)}
+              onNextDrill={startFocusedDrill}
               profile={profile}
               settings={settings}
             />
@@ -620,13 +630,15 @@ function TrainView({
   onHelp,
   onResult,
   profile,
-  settings
+  settings,
+  onNextDrill
 }: {
   puzzle: Puzzle;
   onHelp: () => void;
   onResult: (correct: boolean, hintsUsed: number) => void;
   profile: TutorProfile | null;
   settings: TutorSettings;
+  onNextDrill: () => void;
 }) {
   const [game, setGame] = useState(() => new Chess(puzzle.fen));
   const [selected, setSelected] = useState<Square | null>(null);
@@ -730,15 +742,7 @@ function TrainView({
   }
 
   function nextDrill() {
-    const nextIndex = (trainingPositions.findIndex(p => p.title === puzzle.title) + 1) % trainingPositions.length;
-    const next = trainingPositions[nextIndex];
-    setGame(new Chess(next.fen));
-    setSelected(null);
-    setHintLevel(0);
-    setMistake(false);
-    setSolved(false);
-    setLastMove(null);
-    setMessage(next.goal);
+    onNextDrill();
   }
 
   return (
@@ -771,7 +775,7 @@ function TrainView({
           </div>
 
           <div className="board-bottom">
-            <div className="player-row"><div className="player-avatar">{(profile?.username?.[0] ?? "B").toUpperCase()}</div><div><b>{profile?.username ?? "You"}</b><span>{profile?.rating ?? 1765} · White</span></div></div>
+            <div className="player-row"><div className="player-avatar">{(profile?.username?.[0] ?? "B").toUpperCase()}</div><div><b>{profile?.username ?? "You"}</b><span>{profile ? `${profile.rating} · White` : "Local progress · White"}</span></div></div>
             <div className="move-state">{game.history().length ? game.history().slice(-8).join("  ") : "Choose a piece to begin"}</div>
             <button className="ghost-button" onClick={reset}><RotateCcw size={15} /> Retry</button>
           </div>
