@@ -149,6 +149,7 @@ export async function recordGame(args: {
   opponentElo: number;
   playerColor: "white" | "black";
   result: "win" | "loss" | "draw";
+  opening?: string;
   pgn: string;
 }) {
   if (!supabase) return;
@@ -160,6 +161,7 @@ export async function recordGame(args: {
     opponent_elo: args.opponentElo,
     player_color: args.playerColor,
     result: args.result,
+    opening: args.opening ?? "Local game",
     pgn: args.pgn,
     finished_at: new Date().toISOString()
   });
@@ -171,7 +173,7 @@ export async function loadCloudGames(userId: string): Promise<import("./storage"
 
   const { data, error } = await supabase
     .from("games")
-    .select("id, opponent_name, opponent_elo, result, pgn, started_at, finished_at")
+    .select("id, opponent_name, opponent_elo, result, opening, pgn, started_at, finished_at")
     .eq("user_id", userId)
     .order("started_at", { ascending: false })
     .limit(20);
@@ -188,7 +190,7 @@ export async function loadCloudGames(userId: string): Promise<import("./storage"
       day: "numeric",
       year: "numeric"
     }),
-    opening: "Local game",
+    opening: row.opening || "Local game",
     moves: countPgnMoves(row.pgn),
     pgn: row.pgn ?? undefined
   }));

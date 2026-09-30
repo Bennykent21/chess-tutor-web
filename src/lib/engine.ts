@@ -53,19 +53,35 @@ function parseInfo(line: string, sideToMove: "w" | "b", latest: EngineEvaluation
   return latest;
 }
 
-function createWorker(): Worker {
-  const source = [
-    "self.Module = {",
-    "  locateFile: function(path) {",
-    `    return ${JSON.stringify(engineWasmUrl)};`,
-    "  }",
-    "};",
-    `importScripts(${JSON.stringify(engineScriptUrl)});`
-  ].join("\n");
+function toAbsoluteUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  if (typeof window !== "undefined" && window.location) {
+    return new URL(url, window.location.href).href;
+  }
+  return url;
+}
 
-  const blob = new Blob([source], { type: "application/javascript" });
-  workerUrl = URL.createObjectURL(blob);
-  return new Worker(workerUrl);
+function createWorker(): Worker {
+  const absScriptUrl = toAbsoluteUrl(engineScriptUrl);
+  const absWasmUrl = toAbsoluteUrl(engineWasmUrl);
+  const workerHash = `#${encodeURIComponent(absWasmUrl)},worker`;
+
+  try {
+    return new Worker(`${absScriptUrl}${workerHash}`);
+  } catch {
+    const source = [
+      "self.Module = {",
+      "  locateFile: function(path) {",
+      `    return ${JSON.stringify(absWasmUrl)};`,
+      "  }",
+      "};",
+      `importScripts(${JSON.stringify(absScriptUrl)});`
+    ].join("\n");
+
+    const blob = new Blob([source], { type: "application/javascript" });
+    workerUrl = URL.createObjectURL(blob);
+    return new Worker(`${workerUrl}${workerHash}`);
+  }
 }
 
 function startAnalysis(request: AnalysisRequest) {

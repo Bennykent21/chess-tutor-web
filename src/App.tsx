@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Chess, Square } from "chess.js";
 import {
   ArrowLeftRight,
@@ -21,9 +21,37 @@ import {
   Zap
 } from "lucide-react";
 import { curriculumLessons, openingCourses } from "./data/content";
-import { applyReviewResult, countDueReviews, loadAttemptHistory, loadGameHistory, loadGameMistakes, loadProgress, loadReviewSchedule, saveAttempt, saveGameMistakes, saveGameRecord, saveProgress, saveReviewSchedule, touchActivity, loadSettings, saveSettings, TutorAttemptRecord, TutorGameMistake, TutorGameRecord, TutorProgress, TutorReviewItem, TutorSettings } from "./lib/storage";
+import {
+  applyReviewResult,
+  clearLocalData,
+  countDueReviews,
+  defaultProgress,
+  generateUuid,
+  loadAttemptHistory,
+  loadGameHistory,
+  loadGameMistakes,
+  loadProgress,
+  loadReviewSchedule,
+  mergeProgress,
+  saveAttempt,
+  saveGameMistakes,
+  saveGameRecord,
+  saveProgress,
+  saveReviewSchedule,
+  touchActivity,
+  loadSettings,
+  saveSettings,
+  TutorAttemptRecord,
+  TutorGameMistake,
+  TutorGameRecord,
+  TutorProgress,
+  TutorReviewItem,
+  TutorSettings
+} from "./lib/storage";
 import { AuthUser, getAuthUser, loadCloudGameMistakes, loadCloudGames, loadCloudProfile, loadCloudProgress, loadCloudReviewItems, loadCloudSettings, recordGame, recordGameMistake, recordReviewAttempt, recordTrainingAttempt, saveCloudProgress, saveCloudSettings, signOut, subscribeToAuthChanges, TutorProfile, updateCloudProfile } from "./lib/cloud";
 import { AuthModal } from "./components/AuthModal";
+import { ChessPiece } from "./components/ChessPiece";
+import { PromotionModal } from "./components/PromotionModal";
 import { analysePosition, findBestMove, EngineEvaluation } from "./lib/engine";
 import { analyseGame } from "./lib/gameAnalysis";
 
@@ -62,10 +90,10 @@ const trainingPositions: Puzzle[] = [
     title: "Forced mate in one",
     category: "Blunder Patterns",
     fen: "7k/5Q2/7K/8/8/8/8/8 w - - 0 1",
-    goal: "Find the only move that finishes the game.",
+    goal: "Find a move that delivers checkmate in one.",
     hint: "Look for a queen move that gives check while staying protected by your king.",
     expected: "f7g7",
-    success: "Mate. The queen seals the only escape squares while your king protects g7."
+    success: "Checkmate! The queen seals all escape squares while your king protects g7."
   },
   {
     title: "Develop with tempo",
@@ -98,49 +126,49 @@ const trainingPositions: Puzzle[] = [
 
 const lessons: Lesson[] = [
   {
-    title: "The Golden Rules of Opening",
+    title: "Golden Rules of Opening",
     subtitle: "Center Control & Rapid Development",
     category: "Openings",
     copy: "Control the center, develop pieces, and castle before you start a side attack.",
-    fen: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1",
+    fen: "rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
     move: "d2d4",
     explanation: "A second central pawn makes your position easier to develop and gives the c1 bishop a useful diagonal."
   },
   {
-    title: "The Italian Game",
+    title: "Italian Game",
     subtitle: "1. e4 e5 2. Nf3 Nc6 3. Bc4",
     category: "Openings",
     copy: "Develop with tempo against the center and put immediate pressure on f7.",
-    fen: "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 3",
+    fen: "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3",
     move: "f1c4",
     explanation: "The bishop develops to an active diagonal and immediately points at the sensitive f7 square."
   },
   {
-    title: "The Royal Knight Fork",
+    title: "Royal Knight Fork",
     subtitle: "Simultaneous Multi-Square Strikes",
     category: "Tactics",
     copy: "A fork works because one piece cannot answer two forcing threats at once.",
-    fen: "4k3/8/8/3n4/2N5/8/8/4K3 w - - 0 1",
+    fen: "2q1k3/8/8/8/2N5/8/8/4K3 w - - 0 1",
     move: "c4d6",
-    explanation: "A knight fork is valuable when the targets are high-value and the fork lands with tempo."
+    explanation: "Nd6+ forks the king on e8 and queen on c8, winning decisive material."
   },
   {
     title: "Outposts & Knight Strongholds",
     subtitle: "Dominating the 5th and 6th Ranks",
     category: "Middlegame",
-    copy: "Look for squares the opponent cannot attack with a pawn and make those squares permanent assets.",
-    fen: "4k3/pp3ppp/8/3N4/8/8/PP3PPP/4K3 w - - 0 1",
-    move: "d5c7",
-    explanation: "The knight jumps into a pawn-safe square that attacks useful targets and limits the enemy king."
+    copy: "Look for squares the opponent cannot challenge with a pawn and make those squares permanent assets.",
+    fen: "r1bqkb1r/pp3ppp/2n5/4p3/4P3/2N5/PPP2PPP/R1BQK2R w KQkq - 0 1",
+    move: "c3d5",
+    explanation: "The knight lands on the d5 outpost, supported by e4, where no enemy pawn can dislodge it."
   },
   {
-    title: "The Opposition & Key Squares",
+    title: "Opposition & Key Squares",
     subtitle: "The Universal King & Pawn Blueprint",
     category: "Endgame",
-    copy: "King activity matters more than material once the board is simplified.",
-    fen: "8/8/8/3k4/3P4/8/8/3K4 w - - 0 1",
-    move: "d1e2",
-    explanation: "Approaching the critical files while maintaining opposition is the foundation of many king-and-pawn endings."
+    copy: "King activity and taking the opposition decide king-and-pawn endings.",
+    fen: "8/8/3k4/8/3K4/4P3/8/8 w - - 0 1",
+    move: "e3e4",
+    explanation: "Pushing e4 seizes the opposition and forces the enemy king to give ground, enabling pawn promotion."
   },
   {
     title: "Missed Mate in 1",
@@ -149,7 +177,7 @@ const lessons: Lesson[] = [
     copy: "Train the habit of scanning every legal check before moving a quiet piece.",
     fen: "7k/5Q2/7K/8/8/8/8/8 w - - 0 1",
     move: "f7g7",
-    explanation: "The mating move works because the queen covers h8, h7 and g8 while the king protects g7."
+    explanation: "Qg7# delivers checkmate because the queen covers h8, h7 and g8 while the king protects g7."
   }
 ];
 
@@ -195,24 +223,87 @@ function puzzleFromGameMistake(mistake: TutorGameMistake): Puzzle {
 const files = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 const ranks = [8, 7, 6, 5, 4, 3, 2, 1] as const;
 
-function playCue(kind: "success" | "error") {
+function playCue(kind: "move" | "capture" | "check" | "success" | "error") {
   if (typeof window === "undefined") return;
   try {
-    const AudioCtor = window.AudioContext;
+    const AudioCtor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtor) return;
     const context = new AudioCtor();
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    oscillator.type = "sine";
-    oscillator.frequency.value = kind === "success" ? 660 : 220;
-    gain.gain.setValueAtTime(0.0001, context.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.045, context.currentTime + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.16);
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.addEventListener("ended", () => { void context.close(); }, { once: true });
-    oscillator.start();
-    oscillator.stop(context.currentTime + 0.17);
+    const now = context.currentTime;
+
+    if (kind === "move") {
+      const osc = context.createOscillator();
+      const gain = context.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(140, now + 0.08);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.exponentialRampToValueAtTime(0.07, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+      osc.connect(gain);
+      gain.connect(context.destination);
+      osc.start(now);
+      osc.stop(now + 0.09);
+      osc.onended = () => { void context.close(); };
+    } else if (kind === "capture") {
+      const osc = context.createOscillator();
+      const gain = context.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(420, now);
+      osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.exponentialRampToValueAtTime(0.06, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+      osc.connect(gain);
+      gain.connect(context.destination);
+      osc.start(now);
+      osc.stop(now + 0.11);
+      osc.onended = () => { void context.close(); };
+    } else if (kind === "check") {
+      [587, 880].forEach((freq, i) => {
+        const osc = context.createOscillator();
+        const gain = context.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, now + i * 0.05);
+        gain.gain.setValueAtTime(0.001, now + i * 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.05, now + i * 0.05 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.05 + 0.16);
+        osc.connect(gain);
+        gain.connect(context.destination);
+        osc.start(now + i * 0.05);
+        osc.stop(now + i * 0.05 + 0.17);
+      });
+      setTimeout(() => { void context.close(); }, 300);
+    } else if (kind === "success") {
+      [523.25, 659.25].forEach((freq, i) => {
+        const osc = context.createOscillator();
+        const gain = context.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, now + i * 0.07);
+        gain.gain.setValueAtTime(0.001, now + i * 0.07);
+        gain.gain.exponentialRampToValueAtTime(0.06, now + i * 0.07 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.07 + 0.2);
+        osc.connect(gain);
+        gain.connect(context.destination);
+        osc.start(now + i * 0.07);
+        osc.stop(now + i * 0.07 + 0.21);
+      });
+      setTimeout(() => { void context.close(); }, 400);
+    } else {
+      const osc = context.createOscillator();
+      const gain = context.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(200, now);
+      osc.frequency.exponentialRampToValueAtTime(130, now + 0.16);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.exponentialRampToValueAtTime(0.05, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+      osc.connect(gain);
+      gain.connect(context.destination);
+      osc.start(now);
+      osc.stop(now + 0.19);
+      osc.onended = () => { void context.close(); };
+    }
   } catch {
     // Audio is optional and can be unavailable or blocked by the browser.
   }
@@ -246,7 +337,15 @@ function App() {
     return subscribeToAuthChanges(user => {
       if (active) {
         setAuthUser(user);
-        if (!user) setCloudSyncedFor(null);
+        if (!user) {
+          setCloudSyncedFor(null);
+          setProfile(null);
+          clearLocalData();
+          setProgress(defaultProgress);
+          setAttemptHistory([]);
+          setGameMistakes([]);
+          setReviewSchedule(loadReviewSchedule([...reviewPositions, ...trainingPositions].map(p => p.title)));
+        }
       }
     });
   }, []);
@@ -277,7 +376,9 @@ function App() {
       loadCloudSettings(authUser.id)
     ]).then(([cloud, cloudReviews, cloudMistakes, cloudSettings]) => {
       if (!active) return;
-      if (cloud) setProgress(cloud);
+      if (cloud) {
+        setProgress(current => mergeProgress(current, cloud));
+      }
       if (cloudSettings) setSettings(cloudSettings);
       if (cloudMistakes.length) {
         setGameMistakes(current => {
@@ -371,26 +472,35 @@ function App() {
     setActiveLessonTitle(null);
   }
 
-  function recordTrainingResult(correct: boolean, puzzle: Puzzle, lessonTitle: string | undefined, hintsUsed: number) {
-    setReviewSchedule(current => {
-      const known = current.some(item => item.puzzleKey === puzzle.title);
-      if (!known && !correct) {
-        const added: TutorReviewItem = {
+  function recordTrainingResult(correct: boolean, puzzle: Puzzle, lessonTitle: string | undefined, hintsUsed: number, playedMove?: string) {
+    const known = reviewSchedule.some(item => item.puzzleKey === puzzle.title);
+    let nextSchedule = reviewSchedule;
+
+    if (!known && !correct) {
+      const added: TutorReviewItem = {
+        puzzleKey: puzzle.title,
+        dueAt: new Date().toISOString(),
+        intervalDays: 1,
+        repetitions: 0,
+        lastResult: "wrong"
+      };
+      nextSchedule = [...reviewSchedule, added];
+      setReviewSchedule(nextSchedule);
+      saveReviewSchedule(nextSchedule);
+      if (authUser && cloudSyncedFor === authUser.id) {
+        void recordReviewAttempt({
+          userId: authUser.id,
           puzzleKey: puzzle.title,
-          dueAt: new Date().toISOString(),
+          correct: false,
           intervalDays: 1,
-          repetitions: 0,
-          lastResult: "wrong"
-        };
-        const next = [...current, added];
-        saveReviewSchedule(next);
-        return next;
+          repetitions: 0
+        });
       }
-      if (!known) return current;
-      const next = applyReviewResult(current, puzzle.title, correct);
-      saveReviewSchedule(next);
-      return next;
-    });
+    } else if (known) {
+      nextSchedule = applyReviewResult(reviewSchedule, puzzle.title, correct);
+      setReviewSchedule(nextSchedule);
+      saveReviewSchedule(nextSchedule);
+    }
 
     const attempt: TutorAttemptRecord = {
       puzzleKey: puzzle.title,
@@ -402,14 +512,18 @@ function App() {
     saveAttempt(attempt);
     setAttemptHistory(current => [attempt, ...current].slice(0, 100));
 
+    const dueCount = countDueReviews(nextSchedule);
     setProgress(current => {
       const active = touchActivity(current);
+      const solved = active.solvedPositions + (correct ? 1 : 0);
+      const mistakes = active.recordedMistakes + (correct ? 0 : 1);
+      const attempts = solved + mistakes;
       const next: TutorProgress = {
         ...active,
-        weeklyAccuracy: (() => { const solved = active.solvedPositions + (correct ? 1 : 0); const mistakes = active.recordedMistakes + (correct ? 0 : 1); const attempts = solved + mistakes; return attempts > 0 ? Math.round((solved / attempts) * 100) : active.weeklyAccuracy; })(),
-        reviewDue: countDueReviews(reviewSchedule),
-        solvedPositions: active.solvedPositions + (correct ? 1 : 0),
-        recordedMistakes: active.recordedMistakes + (correct ? 0 : 1),
+        weeklyAccuracy: attempts > 0 ? Math.round((solved / attempts) * 100) : active.weeklyAccuracy,
+        reviewDue: dueCount,
+        solvedPositions: solved,
+        recordedMistakes: mistakes,
         completedLessons: lessonTitle && correct && !active.completedLessons.includes(lessonTitle)
           ? [...active.completedLessons, lessonTitle]
           : active.completedLessons
@@ -424,6 +538,7 @@ function App() {
         puzzleKey: puzzle.title,
         fen: puzzle.fen,
         expectedMove: puzzle.expected,
+        playedMove,
         correct,
         hintsUsed
       });
@@ -431,45 +546,45 @@ function App() {
   }
 
   function completeReview(puzzle: Puzzle, correct: boolean) {
-    setReviewSchedule(current => {
-      const next = applyReviewResult(current, puzzle.title, correct);
-      saveReviewSchedule(next);
-      const due = countDueReviews(next);
-      const reviewAttempt: TutorAttemptRecord = {
-        puzzleKey: puzzle.title,
-        category: puzzle.category,
-        correct,
-        hintsUsed: 0,
-        createdAt: new Date().toISOString()
-      };
-      saveAttempt(reviewAttempt);
-      setAttemptHistory(history => [reviewAttempt, ...history].slice(0, 100));
+    const nextSchedule = applyReviewResult(reviewSchedule, puzzle.title, correct);
+    setReviewSchedule(nextSchedule);
+    saveReviewSchedule(nextSchedule);
+    const due = countDueReviews(nextSchedule);
 
-      setProgress(progressCurrent => {
-        const active = touchActivity(progressCurrent);
-        const solved = active.solvedPositions + (correct ? 1 : 0);
-        const mistakes = active.recordedMistakes + (correct ? 0 : 1);
-        const attempts = solved + mistakes;
-        return {
-          ...active,
-          reviewDue: due,
-          solvedPositions: solved,
-          recordedMistakes: mistakes,
-          weeklyAccuracy: attempts > 0 ? Math.round((solved / attempts) * 100) : active.weeklyAccuracy
-        };
-      });
-      const updated = next.find(item => item.puzzleKey === puzzle.title);
-      if (authUser && cloudSyncedFor === authUser.id && updated) {
-        void recordReviewAttempt({
-          userId: authUser.id,
-          puzzleKey: puzzle.title,
-          correct,
-          intervalDays: updated.intervalDays,
-          repetitions: updated.repetitions
-        });
-      }
-      return next;
+    const reviewAttempt: TutorAttemptRecord = {
+      puzzleKey: puzzle.title,
+      category: puzzle.category,
+      correct,
+      hintsUsed: 0,
+      createdAt: new Date().toISOString()
+    };
+    saveAttempt(reviewAttempt);
+    setAttemptHistory(history => [reviewAttempt, ...history].slice(0, 100));
+
+    setProgress(progressCurrent => {
+      const active = touchActivity(progressCurrent);
+      const solved = active.solvedPositions + (correct ? 1 : 0);
+      const mistakes = active.recordedMistakes + (correct ? 0 : 1);
+      const attempts = solved + mistakes;
+      return {
+        ...active,
+        reviewDue: due,
+        solvedPositions: solved,
+        recordedMistakes: mistakes,
+        weeklyAccuracy: attempts > 0 ? Math.round((solved / attempts) * 100) : active.weeklyAccuracy
+      };
     });
+
+    const updated = nextSchedule.find(item => item.puzzleKey === puzzle.title);
+    if (authUser && cloudSyncedFor === authUser.id && updated) {
+      void recordReviewAttempt({
+        userId: authUser.id,
+        puzzleKey: puzzle.title,
+        correct,
+        intervalDays: updated.intervalDays,
+        repetitions: updated.repetitions
+      });
+    }
   }
 
   return (
@@ -477,14 +592,14 @@ function App() {
       <header className="topbar">
         <div className="brand-lockup">
           <div className="brand-mark">♞</div>
-          <div>
-            <div className="brand-name">Chess Tutor</div>
-            <div className="brand-kicker">COACH-FIRST CHESS TRAINING</div>
-          </div>
+          <div className="brand-name">Chess Tutor</div>
         </div>
 
         <div className="topbar-meta">
-          <div className="streak"><span className="streak-dot" />{progress.streak ? progress.streak + " day streak" : "Start your streak"}</div>
+          <div className="streak-indicator">
+            <span className="streak-dot" />
+            {progress.streak ? `${progress.streak} day streak` : "Start streak"}
+          </div>
           <button className="icon-button" aria-label="Settings" onClick={() => setSettingsOpen(true)}>
             <Settings size={17} />
           </button>
@@ -532,54 +647,77 @@ function App() {
           <div className="sidebar-footer">
             <div className="sidebar-footer-card">
               <span className="mini-icon"><Trophy size={15} /></span>
-              <div><b>{progress.weeklyAccuracy}%</b><small>weekly accuracy</small></div>
+              <div><b>{progress.weeklyAccuracy}%</b><small>overall accuracy</small></div>
             </div>
           </div>
         </aside>
 
-        {gameMistakes.length > 0 && <section className="coaching-insights">
-        <div className="insights-head">
-          <div><span className="eyebrow">COACHING SIGNALS</span><h2>Your game is teaching us what to practise</h2></div>
-          <button className="secondary-button" onClick={() => selectTab("review")}>Open Review <ChevronRight size={13} /></button>
-        </div>
-        <div className="insight-grid">
-          {Object.entries(gameMistakes.reduce<Record<string, number>>((counts, mistake) => {
-            counts[mistake.category] = (counts[mistake.category] ?? 0) + 1;
-            return counts;
-          }, {})).sort(([, a], [, b]) => b - a).slice(0, 4).map(([category, count]) => (
-            <div className="insight-card" key={category}>
-              <span className="surface-label">{category}</span>
-              <strong>{count} {count === 1 ? "position" : "positions"}</strong>
-              <small>Engine-flagged for Review</small>
-            </div>
-          ))}
-        </div>
-      </section>}
+        <main className="main-content">
+          {gameMistakes.length > 0 && tab === "review" && (
+            <section className="coaching-insights">
+              <div className="insights-head">
+                <div>
+                  <span className="eyebrow">COACHING SIGNALS</span>
+                  <h2>Your game is teaching us what to practise</h2>
+                </div>
+              </div>
+              <div className="insight-grid">
+                {Object.entries(
+                  gameMistakes.reduce<Record<string, number>>((counts, mistake) => {
+                    counts[mistake.category] = (counts[mistake.category] ?? 0) + 1;
+                    return counts;
+                  }, {})
+                ).sort(([, a], [, b]) => b - a).slice(0, 4).map(([category, count]) => (
+                  <div className="insight-card" key={category}>
+                    <span className="surface-label">{category}</span>
+                    <strong>{count} {count === 1 ? "position" : "positions"}</strong>
+                    <small>Engine-flagged for Review</small>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
-      <main className="main-content">
-          {tab === "train" && (
+          <div style={{ display: tab === "train" ? "block" : "none" }}>
             <TrainView
               puzzle={trainingPuzzle}
               onHelp={() => setHelpOpen(true)}
-              onResult={(correct, hintsUsed) => recordTrainingResult(correct, trainingPuzzle, activeLessonTitle ?? undefined, hintsUsed)}
+              onResult={(correct, hintsUsed, playedMove) => recordTrainingResult(correct, trainingPuzzle, activeLessonTitle ?? undefined, hintsUsed, playedMove)}
               onNextDrill={startFocusedDrill}
               profile={profile}
               settings={settings}
             />
-          )}
-          {tab === "learn" && <LearnView onPractice={startLesson} completedLessons={progress.completedLessons} />}
-          {tab === "play" && <PlayView authUser={authUser} cloudSyncedFor={cloudSyncedFor} gameMistakes={gameMistakes} onMistakesFound={mistakes => {
-              saveGameMistakes(mistakes);
-              setGameMistakes(current => {
-                const byKey = new Map(current.map(item => [item.key, item]));
-                mistakes.forEach(item => byKey.set(item.key, item));
-                return [...byKey.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 100);
-              });
-              if (authUser && cloudSyncedFor === authUser.id) {
-                void Promise.all(mistakes.map(mistake => recordGameMistake(authUser.id, mistake)));
-              }
-            }} />}
-          {tab === "review" && <ReviewView positions={[...reviewPositions, ...gameMistakes.map(puzzleFromGameMistake)]} due={progress.reviewDue} schedule={reviewSchedule} attemptHistory={attemptHistory} onComplete={completeReview} />}
+          </div>
+          <div style={{ display: tab === "learn" ? "block" : "none" }}>
+            <LearnView onPractice={startLesson} completedLessons={progress.completedLessons} />
+          </div>
+          <div style={{ display: tab === "play" ? "block" : "none" }}>
+            <PlayView
+              authUser={authUser}
+              cloudSyncedFor={cloudSyncedFor}
+              gameMistakes={gameMistakes}
+              onMistakesFound={mistakes => {
+                saveGameMistakes(mistakes);
+                setGameMistakes(current => {
+                  const byKey = new Map(current.map(item => [item.key, item]));
+                  mistakes.forEach(item => byKey.set(item.key, item));
+                  return [...byKey.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 100);
+                });
+                if (authUser && cloudSyncedFor === authUser.id) {
+                  void Promise.all(mistakes.map(mistake => recordGameMistake(authUser.id, mistake)));
+                }
+              }}
+            />
+          </div>
+          <div style={{ display: tab === "review" ? "block" : "none" }}>
+            <ReviewView
+              positions={[...reviewPositions, ...gameMistakes.map(puzzleFromGameMistake)]}
+              due={progress.reviewDue}
+              schedule={reviewSchedule}
+              attemptHistory={attemptHistory}
+              onComplete={completeReview}
+            />
+          </div>
         </main>
       </div>
 
@@ -596,7 +734,18 @@ function App() {
         user={authUser}
         profile={profile}
         onProfileSaved={setProfile}
-        onSignOut={() => { void signOut(); setAuthOpen(false); }}
+        onSignOut={() => {
+          void signOut();
+          setAuthUser(null);
+          setCloudSyncedFor(null);
+          setProfile(null);
+          clearLocalData();
+          setProgress(defaultProgress);
+          setAttemptHistory([]);
+          setGameMistakes([]);
+          setReviewSchedule(loadReviewSchedule([...reviewPositions, ...trainingPositions].map(p => p.title)));
+          setAuthOpen(false);
+        }}
         onClose={() => setAuthOpen(false)}
       />}
 
@@ -645,7 +794,7 @@ function TrainView({
 }: {
   puzzle: Puzzle;
   onHelp: () => void;
-  onResult: (correct: boolean, hintsUsed: number) => void;
+  onResult: (correct: boolean, hintsUsed: number, playedMove?: string) => void;
   profile: TutorProfile | null;
   settings: TutorSettings;
   onNextDrill: () => void;
@@ -702,6 +851,8 @@ function TrainView({
     [game, selected]
   );
 
+  const showEngineDetails = solved || mistake || hintLevel >= 3;
+
   function clickSquare(square: Square) {
     if (solved || mistake || game.turn() !== "w") return;
 
@@ -710,7 +861,11 @@ function TrainView({
       const move = next.move({ from: selected, to: square, promotion: "q" });
       if (!move) return;
 
-      const isCorrect = move.from + move.to === puzzle.expected;
+      const playedUci = move.from + move.to;
+      const isExpected = playedUci === puzzle.expected || (playedUci + (move.promotion ?? "")) === puzzle.expected;
+      const isMatingMove = next.isCheckmate();
+      const isCorrect = isExpected || isMatingMove;
+
       setGame(next);
       setLastMove({ from: move.from, to: move.to });
       setSelected(null);
@@ -719,12 +874,12 @@ function TrainView({
         if (settings.soundCues) playCue("success");
         setSolved(true);
         setMessage(puzzle.success);
-        onResult(true, hintLevel);
+        onResult(true, hintLevel, playedUci);
       } else {
         if (settings.soundCues) playCue("error");
         setMistake(true);
         setMessage("That move is legal, but it misses the training objective. Look at the coach note, then retry.");
-        onResult(false, hintLevel);
+        onResult(false, hintLevel, playedUci);
       }
       return;
     }
@@ -778,8 +933,14 @@ function TrainView({
 
           <div className="board-wrap">
             <div className="eval-bar" aria-label="Stockfish evaluation">
-              <span style={{ height: engineEvaluation?.mateIn !== null && engineEvaluation?.mateIn !== undefined && engineEvaluation.mateIn > 0 ? "100%" : String(Math.max(8, Math.min(92, 50 + ((engineEvaluation?.scoreCp ?? 0) / 1200) * 50))) + "%" }} />
-              <b>{engineThinking ? "…" : formatEvaluation(engineEvaluation)}</b>
+              <span style={{
+                height: !showEngineDetails
+                  ? "50%"
+                  : engineEvaluation?.mateIn !== null && engineEvaluation?.mateIn !== undefined && engineEvaluation.mateIn > 0
+                  ? "100%"
+                  : String(Math.max(8, Math.min(92, 50 + ((engineEvaluation?.scoreCp ?? 0) / 1200) * 50))) + "%"
+              }} />
+              <b>{!showEngineDetails ? "—" : engineThinking ? "…" : formatEvaluation(engineEvaluation)}</b>
             </div>
             <ChessBoard game={game} orientation={orientation} selected={selected} targets={settings.showLegalMoves ? legalTargets : new Set<string>()} lastMove={lastMove} onSquare={clickSquare} />
           </div>
@@ -805,8 +966,24 @@ function TrainView({
             <div className="issue-icon"><Gauge size={18} /></div>
             <div className="issue-copy">
               <span className="surface-label">POSITION SIGNAL</span>
-              <strong>{solved ? "Training point secured" : mistake ? "Mistake recorded locally" : engineThinking ? "Stockfish is calculating" : engineEvaluation ? "Engine feedback ready" : "Scan checks, captures, threats"}</strong>
-              <span>{engineThinking ? "Engine calculating…" : engineEvaluation?.principalVariation.length ? "Best line · " + formatPrincipalVariation(game.fen(), engineEvaluation.principalVariation) : (engineEvaluation ? "Stockfish depth " + engineEvaluation.depth : (hintLevel ? "Hint level " + hintLevel + " / 3" : "Engine unavailable"))}</span>
+              <strong>
+                {solved
+                  ? "Training point secured"
+                  : mistake
+                  ? "Mistake recorded locally"
+                  : showEngineDetails
+                  ? (engineThinking ? "Stockfish is calculating" : "Engine feedback ready")
+                  : "Find the strongest move"}
+              </strong>
+              <span>
+                {!showEngineDetails
+                  ? "Scan checks, captures, and threats before deciding."
+                  : engineThinking
+                  ? "Engine calculating…"
+                  : engineEvaluation?.principalVariation.length
+                  ? (mistake ? "Refutation line · " : "Best line · ") + formatPrincipalVariation(game.fen(), engineEvaluation.principalVariation)
+                  : (engineEvaluation ? "Stockfish depth " + engineEvaluation.depth : (hintLevel ? "Hint level " + hintLevel + " / 3" : "Engine unavailable"))}
+              </span>
             </div>
           </div>
 
@@ -872,6 +1049,23 @@ function ChessBoard({
   const displayFiles = orientation === "w" ? [...files] : [...files].reverse();
   const displayRanks = orientation === "w" ? [...ranks] : [...ranks].reverse();
 
+  const inCheck = game.inCheck();
+  const turn = game.turn();
+  let kingSquare: Square | null = null;
+  if (inCheck) {
+    for (const r of ranks) {
+      for (const f of files) {
+        const sq = (f + r) as Square;
+        const p = game.get(sq);
+        if (p && p.type === "k" && p.color === turn) {
+          kingSquare = sq;
+          break;
+        }
+      }
+      if (kingSquare) break;
+    }
+  }
+
   return (
     <div className="board-shell">
       <div className="board">
@@ -882,6 +1076,7 @@ function ChessBoard({
           const rankIndex = ranks.indexOf(rank);
           const light = (fileIndex + rankIndex) % 2 === 0;
           const isLastMove = lastMove?.from === square || lastMove?.to === square;
+          const isKingInCheck = square === kingSquare;
           const target = targets.has(square);
           const showFile = rank === (orientation === "w" ? 1 : 8);
           const showRank = file === (orientation === "w" ? "a" : "h");
@@ -893,8 +1088,9 @@ function ChessBoard({
                 "square",
                 light ? "light" : "dark",
                 square === selected ? "selected" : "",
-                isLastMove ? "last-move" : ""
-              ].join(" ")}
+                isLastMove ? "last-move" : "",
+                isKingInCheck ? "in-check" : ""
+              ].filter(Boolean).join(" ")}
               onClick={() => onSquare(square)}
               aria-label={square}
             >
@@ -907,51 +1103,11 @@ function ChessBoard({
           );
         }))}
       </div>
-      <div className="board-caption"><span>{orientation === "w" ? "White" : "Black"} perspective</span><span>Click a piece, then a highlighted square</span></div>
+      <div className="board-caption">
+        <span>{orientation === "w" ? "White" : "Black"} perspective</span>
+        <span>Click a piece, then a destination square</span>
+      </div>
     </div>
-  );
-}
-
-function ChessPiece({ color, type }: { color: "w" | "b"; type: string }) {
-  const light = color === "w";
-  const fill = light ? "#F7F1E5" : "#20272D";
-  const stroke = light ? "#2C343B" : "#11161A";
-
-  return (
-    <svg className="svg-piece" viewBox="0 0 64 64" aria-hidden="true">
-      {type === "p" && <>
-        <circle cx="32" cy="17" r="7" fill={fill} stroke={stroke} strokeWidth="2" />
-        <path d="M21 52h22l-4-7c-1-2-3-3-3-7v-2c4-2 6-6 6-11 0-2-1-3-2-5H24c-1 2-2 3-2 5 0 5 2 9 6 11v2c0 4-2 5-3 7l-4 7z" fill={fill} stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
-        <path d="M18 53h28" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-      </>}
-      {type === "r" && <>
-        <path d="M18 15h7v6h5v-6h4v6h5v-6h7v14H44l-2 17H22l-2-17h-2z" fill={fill} stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
-        <path d="M18 47h28v6H18z" fill={fill} stroke={stroke} strokeWidth="2" />
-      </>}
-      {type === "n" && <>
-        <path d="M21 50h25l-3-7c-3-6-7-9-11-12 3-4 7-8 6-15l-5-7-5 4-6-2 2 8-5 5 4 7c-2 5-4 9-5 19z" fill={fill} stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
-        <circle cx="35" cy="15" r="1.8" fill={stroke} stroke="none" />
-        <path d="M18 53h29" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-      </>}
-      {type === "b" && <>
-        <circle cx="32" cy="15" r="7" fill={fill} stroke={stroke} strokeWidth="2" />
-        <path d="M32 15l-4 5 7 2 2-5z" fill={stroke} stroke="none" />
-        <path d="M25 23c0 7 2 10 6 13-1 4-3 6-6 10h14c-3-4-5-6-6-10 4-3 6-6 6-13z" fill={fill} stroke={stroke} strokeWidth="2" />
-        <path d="M18 53h28" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-      </>}
-      {type === "q" && <>
-        <circle cx="20" cy="15" r="4" fill={fill} stroke={stroke} strokeWidth="2" />
-        <circle cx="32" cy="11" r="4" fill={fill} stroke={stroke} strokeWidth="2" />
-        <circle cx="44" cy="15" r="4" fill={fill} stroke={stroke} strokeWidth="2" />
-        <path d="M18 17l4 27h20l4-27-9 7-5-10-5 10z" fill={fill} stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
-        <path d="M18 53h28" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-      </>}
-      {type === "k" && <>
-        <path d="M27 10h10v6h6v8h-6v7c4 3 6 8 7 13H20c1-5 3-10 7-13v-7h-6v-8h6z" fill={fill} stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
-        <path d="M32 3v13M26 9h12" stroke={stroke} strokeWidth="3" strokeLinecap="round" />
-        <path d="M18 53h28" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-      </>}
-    </svg>
   );
 }
 
@@ -1065,6 +1221,15 @@ function PlayView({
   const [analysisProgress, setAnalysisProgress] = useState({ current: 0, total: 0, label: "" });
   const [analysisMistakes, setAnalysisMistakes] = useState<TutorGameMistake[]>([]);
   const [selectedGameForAnalysis, setSelectedGameForAnalysis] = useState<TutorGameRecord | null>(null);
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null);
+
+  const onMistakesFoundRef = useRef(onMistakesFound);
+  useEffect(() => {
+    onMistakesFoundRef.current = onMistakesFound;
+  }, [onMistakesFound]);
+
+  const analyzedGameKeyRef = useRef<string | null>(null);
+  const activeAnalysisCancelRef = useRef<(() => void) | null>(null);
 
   const legalTargets = useMemo(
     () => selected
@@ -1106,7 +1271,7 @@ function PlayView({
       setGame(next);
       setLastMove({ from: played.from, to: played.to });
       setSelected(null);
-      setStatus(next.isCheckmate() ? "Checkmate. Game finished." : next.isCheck() ? botName + " found check. Your turn." : "Your turn.");
+      setStatus(next.isCheckmate() ? "Checkmate. Game finished." : next.isCheck() ? `${botName} found check. Your turn.` : "Your turn.");
     }, delay);
 
     return () => {
@@ -1114,8 +1279,13 @@ function PlayView({
       window.clearTimeout(timer);
     };
   }, [started, game, botElo, botName]);
+
   useEffect(() => {
-    if (!started || !game.isGameOver() || recordedGame) return;
+    if (!started || !game.isGameOver()) return;
+
+    const pgn = game.pgn();
+    if (!pgn || analyzedGameKeyRef.current === pgn) return;
+    analyzedGameKeyRef.current = pgn;
 
     setRecordedGame(true);
     setAnalysisStatus("analyzing");
@@ -1125,11 +1295,8 @@ function PlayView({
     const result = game.isCheckmate()
       ? (game.turn() === "b" ? "win" : "loss")
       : "draw";
-    const gameId = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : "game-" + Date.now();
+    const gameId = generateUuid();
 
-    const pgn = game.pgn();
     const localRecord: TutorGameRecord = {
       id: gameId,
       pgn,
@@ -1141,7 +1308,7 @@ function PlayView({
       moves: Math.ceil(game.history().length / 2)
     };
     saveGameRecord(localRecord);
-    setLocalGames(current => [localRecord, ...current].slice(0, 20));
+    setLocalGames(current => [localRecord, ...current.filter(g => g.id !== gameId)].slice(0, 20));
 
     if (authUser && cloudSyncedFor === authUser.id) {
       void recordGame({
@@ -1155,35 +1322,39 @@ function PlayView({
       });
     }
 
-    let active = true;
+    let isCancelled = false;
+    activeAnalysisCancelRef.current = () => {
+      isCancelled = true;
+    };
+
     analyseGame(pgn, {
       gameId,
       opponent: botName,
       playerColor: "w",
-      maxPlayerMoves: 18,
+      maxPlayerMoves: 60,
       depth: 8,
       onProgress: next => {
-        if (active) setAnalysisProgress(next);
+        if (!isCancelled) setAnalysisProgress(next);
       }
     }).then(analysis => {
-      if (!active) return;
+      if (isCancelled) return;
       setAnalysisMistakes(analysis.mistakes);
       setAnalysisStatus("complete");
-      onMistakesFound(analysis.mistakes);
+      onMistakesFoundRef.current(analysis.mistakes);
     }).catch(() => {
-      if (!active) return;
+      if (isCancelled) return;
       setAnalysisStatus("failed");
       setAnalysisProgress(current => ({ ...current, label: "Analysis could not finish. The game is still saved." }));
     });
+  }, [started, game, authUser, cloudSyncedFor, botName, botElo]);
 
-    return () => {
-      active = false;
-    };
-  }, [started, game, recordedGame, authUser, cloudSyncedFor, botName, botElo, onMistakesFound]);
   function startGame() {
+    activeAnalysisCancelRef.current?.();
+    analyzedGameKeyRef.current = null;
     setGame(new Chess());
     setSelected(null);
     setLastMove(null);
+    setPendingPromotion(null);
     setRecordedGame(false);
     setAnalysisStatus("idle");
     setAnalysisProgress({ current: 0, total: 0, label: "" });
@@ -1192,17 +1363,35 @@ function PlayView({
     setStatus("Your turn. Build a position before hunting tactics.");
   }
 
+  function handlePromotion(pieceType: "q" | "r" | "b" | "n") {
+    if (!pendingPromotion) return;
+    const next = new Chess(game.fen());
+    const move = next.move({ from: pendingPromotion.from, to: pendingPromotion.to, promotion: pieceType });
+    setPendingPromotion(null);
+    if (!move) return;
+    setGame(next);
+    setSelected(null);
+    setLastMove({ from: move.from, to: move.to });
+    setStatus(next.isCheckmate() ? "Checkmate. Game finished." : next.isCheck() ? `Check. ${botName} is responding.` : `${botName} is thinking.`);
+  }
+
   function clickSquare(square: Square) {
     if (!started || game.turn() !== "w" || game.isGameOver()) return;
 
     if (selected && legalTargets.has(square)) {
+      const movingPiece = game.get(selected);
+      const isPromotion = movingPiece?.type === "p" && (square.endsWith("8") || square.endsWith("1"));
+      if (isPromotion) {
+        setPendingPromotion({ from: selected, to: square });
+        return;
+      }
       const next = new Chess(game.fen());
       const move = next.move({ from: selected, to: square, promotion: "q" });
       if (!move) return;
       setGame(next);
       setSelected(null);
       setLastMove({ from: move.from, to: move.to });
-      setStatus(next.isCheckmate() ? "Checkmate. Game finished." : next.isCheck() ? "Check. Wayne is responding." : "Wayne is thinking.");
+      setStatus(next.isCheckmate() ? "Checkmate. Game finished." : next.isCheck() ? `Check. ${botName} is responding.` : `${botName} is thinking.`);
       return;
     }
 
@@ -1242,7 +1431,7 @@ function PlayView({
           </div>
         ) : (
           <article className="arena-card large-arena">
-            <div className="arena-bot"><div className="bot-avatar">W</div><div><span className="surface-label">CURRENT OPPONENT</span><h2>{botName} <small>{botElo} Elo</small></h2><p>Local training bot · no network service required</p></div></div>
+            <div className="arena-bot"><div className="bot-avatar">{botName[0]}</div><div><span className="surface-label">CURRENT OPPONENT</span><h2>{botName} <small>{botElo} Elo</small></h2><p>Local training bot · no network service required</p></div></div>
             <div className="arena-copy"><h3>Start with a real position</h3><p>The board, legal moves, captures, checks and bot replies are all handled in the browser.</p></div>
             <div className="arena-buttons"><button className="brass-button" onClick={startGame}>Play white</button><button className="secondary-button" onClick={() => setChooserOpen(true)}>Choose opponent</button></div>
           </article>
@@ -1251,14 +1440,12 @@ function PlayView({
         <article className="recent-card">
           <div className="card-head"><div><span className="surface-label">RECENT GAMES</span><h3>Past games</h3></div><History size={16} /></div>
           {localGames.length ? localGames.map(gameRow => (
-
             <div className="game-row" key={(gameRow.id ?? "") + gameRow.opponent + gameRow.date}>
-              <button className="game-row-button game-row-main" onClick={startGame}>
-              
-              <span className="result-badge">{gameRow.result}</span>
-              <div className="game-opponent"><b>{gameRow.opponent}</b><span>{gameRow.rating} · {gameRow.opening}</span></div>
-              <span className="mono">{gameRow.moves} moves</span>
-              <span className="date-label">{gameRow.date}</span>
+              <button className="game-row-button game-row-main" onClick={() => setSelectedGameForAnalysis(gameRow)}>
+                <span className="result-badge">{gameRow.result}</span>
+                <div className="game-opponent"><b>{gameRow.opponent}</b><span>{gameRow.rating} · {gameRow.opening}</span></div>
+                <span className="mono">{gameRow.moves} moves</span>
+                <span className="date-label">{gameRow.date}</span>
               </button>
               {gameRow.pgn && <button className="game-analysis-button" onClick={() => setSelectedGameForAnalysis(gameRow)}>Analyse</button>}
             </div>
@@ -1283,6 +1470,14 @@ function PlayView({
           ))}
         </div>
       </Modal>}
+
+      {pendingPromotion && (
+        <PromotionModal
+          color="w"
+          onSelect={handlePromotion}
+          onCancel={() => setPendingPromotion(null)}
+        />
+      )}
     </>
   );
 }
@@ -1408,15 +1603,12 @@ function ReviewView({
   attemptHistory: TutorAttemptRecord[];
   onComplete: (puzzle: Puzzle, correct: boolean) => void;
 }) {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [sessionPositions, setSessionPositions] = useState<{ list: Puzzle[]; initialIndex: number } | null>(null);
   const now = Date.now();
-  const dueIndexes = positions
-    .map((item, index) => ({ item, index }))
-    .filter(({ item }) => {
-      const scheduled = schedule.find(entry => entry.puzzleKey === item.title);
-      return !scheduled || new Date(scheduled.dueAt).getTime() <= now;
-    })
-    .map(({ index }) => index);
+  const duePositions = positions.filter(item => {
+    const scheduled = schedule.find(entry => entry.puzzleKey === item.title);
+    return !scheduled || new Date(scheduled.dueAt).getTime() <= now;
+  });
 
   return (
     <>
@@ -1426,27 +1618,35 @@ function ReviewView({
       </section>
 
       <section className="review-layout">
-        <div className="review-summary">
-          <span className="surface-label">MISTAKE PATTERNS</span>
-          <div className="pattern-list">
-            {Object.entries(
-              attemptHistory.reduce<Record<string, number>>((counts, attempt) => {
-                if (!attempt.correct) counts[attempt.category] = (counts[attempt.category] ?? 0) + 1;
-                return counts;
-              }, {})
-            ).sort(([, a], [, b]) => b - a).slice(0, 4).map(([category, count]) => (
-              <div className="pattern-row" key={category}><span>{category}</span><b>{count}</b></div>
-            ))}
-            {!attemptHistory.some(attempt => !attempt.correct) && <p className="pattern-empty">No mistakes recorded yet. Your misses will appear here as useful coaching signals.</p>}
+        <div className="review-sidebar">
+          <div className="review-summary">
+            <span className="surface-label">TODAY</span>
+            <strong>{due} positions</strong>
+            <p>1 day · 3 days · 7 days · 14 days · 30 days</p>
+            <div className="review-progress"><span style={{ width: String(Math.max(0, 100 - due * 12)) + "%" }} /></div>
+            <button
+              className="brass-button"
+              onClick={() => setSessionPositions({ list: duePositions.length ? duePositions : positions, initialIndex: 0 })}
+              disabled={due === 0}
+            >
+              <Play size={16} /> {due === 0 ? "Queue complete" : "Start review"}
+            </button>
           </div>
-        </div>
 
-        <div className="review-summary">
-          <span className="surface-label">TODAY</span>
-          <strong>{due} positions</strong>
-          <p>1 day · 3 days · 7 days · 14 days · 30 days</p>
-          <div className="review-progress"><span style={{ width: String(Math.max(0, 100 - due * 12)) + "%" }} /></div>
-          <button className="brass-button" onClick={() => setActiveIndex(dueIndexes[0] ?? 0)} disabled={due === 0}><Play size={16} /> {due === 0 ? "Queue complete" : "Start review"}</button>
+          <div className="review-summary">
+            <span className="surface-label">MISTAKE PATTERNS</span>
+            <div className="pattern-list">
+              {Object.entries(
+                attemptHistory.reduce<Record<string, number>>((counts, attempt) => {
+                  if (!attempt.correct) counts[attempt.category] = (counts[attempt.category] ?? 0) + 1;
+                  return counts;
+                }, {})
+              ).sort(([, a], [, b]) => b - a).slice(0, 4).map(([category, count]) => (
+                <div className="pattern-row" key={category}><span>{category}</span><b>{count}</b></div>
+              ))}
+              {!attemptHistory.some(attempt => !attempt.correct) && <p className="pattern-empty">No mistakes recorded yet. Your misses will appear here as useful coaching signals.</p>}
+            </div>
+          </div>
         </div>
 
         <div className="review-list">
@@ -1455,7 +1655,7 @@ function ReviewView({
             const isDue = !scheduled || new Date(scheduled.dueAt).getTime() <= now;
             const daysAway = scheduled ? Math.max(1, Math.ceil((new Date(scheduled.dueAt).getTime() - now) / 86400000)) : 0;
             return (
-              <button className="review-item review-item-button" key={item.title} onClick={() => setActiveIndex(i)}>
+              <button className="review-item review-item-button" key={item.title} onClick={() => setSessionPositions({ list: positions, initialIndex: i })}>
                 <span className="review-index">{i + 1}</span>
                 <div><b>{item.title}</b><p>{item.goal}</p></div>
                 <span className="review-stage">{isDue ? "Due today" : `In ${daysAway}d`}</span>
@@ -1466,7 +1666,14 @@ function ReviewView({
         </div>
       </section>
 
-      {activeIndex !== null && <ReviewSession positions={positions} initialIndex={activeIndex} onComplete={onComplete} onClose={() => setActiveIndex(null)} />}
+      {sessionPositions !== null && (
+        <ReviewSession
+          positions={sessionPositions.list}
+          initialIndex={sessionPositions.initialIndex}
+          onComplete={onComplete}
+          onClose={() => setSessionPositions(null)}
+        />
+      )}
     </>
   );
 }
@@ -1511,7 +1718,19 @@ function ReviewSession({
       if (!move) return;
       setGame(next);
       setSelected(null);
-      setResult(move.from + move.to === puzzle.expected ? "correct" : "wrong");
+
+      const playedUci = move.from + move.to;
+      const isExpected = playedUci === puzzle.expected || (playedUci + (move.promotion ?? "")) === puzzle.expected;
+      const isMatingMove = next.isCheckmate();
+      const isCorrect = isExpected || isMatingMove;
+
+      if (isCorrect) {
+        setResult("correct");
+        onComplete(puzzle, true);
+      } else {
+        setResult("wrong");
+        onComplete(puzzle, false);
+      }
       return;
     }
     const piece = game.get(square);
@@ -1519,7 +1738,6 @@ function ReviewSession({
   }
 
   function nextCard() {
-    onComplete(puzzle, result === "correct");
     if (index >= positions.length - 1) {
       onClose();
       return;
@@ -1545,11 +1763,16 @@ function ReviewSession({
             <div className={result === "correct" ? "coach-card solved" : result === "wrong" ? "coach-card warning" : "coach-card"}>
               <span className="surface-label">{result === "correct" ? "CORRECT" : result === "wrong" ? "NOT YET" : "RECALL"}</span>
               <h3>{result === "correct" ? "The reason is secured." : result === "wrong" ? "Reset and look again." : "Can you find the move?"}</h3>
-              <p>{result === "correct" ? puzzle.success : result === "wrong" ? "The move is legal, but it does not answer the training objective." : "Use the board first. The reveal is there to support recall, not replace it."}</p>
+              <p>{result === "correct" ? puzzle.success : result === "wrong" ? "The move is legal, but it does not answer the training objective. It has been scheduled for tomorrow." : "Use the board first. The reveal is there to support recall, not replace it."}</p>
             </div>
             {!revealed && result === "idle" && <button className="secondary-button full" onClick={() => setRevealed(true)}><Lightbulb size={16} /> Reveal hint</button>}
             {revealed && result === "idle" && <div className="revealed-answer"><span className="surface-label">HINT</span><b>{puzzle.hint}</b><small>Target move: {puzzle.expected.slice(0, 2)} → {puzzle.expected.slice(2)}</small></div>}
-            {result === "wrong" && <button className="secondary-button full" onClick={resetSession}><RotateCcw size={16} /> Retry position</button>}
+            {result === "wrong" && (
+              <div className="coach-actions" style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                <button className="secondary-button full" onClick={resetSession}><RotateCcw size={16} /> Retry position</button>
+                <button className="ghost-button full" onClick={nextCard}><ChevronRight size={16} /> Continue to next</button>
+              </div>
+            )}
             {result === "correct" && <button className="brass-button full" onClick={nextCard}><ChevronRight size={16} /> Next review</button>}
           </div>
         </div>

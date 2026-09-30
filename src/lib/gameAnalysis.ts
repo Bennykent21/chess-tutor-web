@@ -18,8 +18,8 @@ function toUci(move: { from: string; to: string; promotion?: string }) {
   return move.from + move.to + (move.promotion ?? "");
 }
 
-function scoreForPlayer(evaluation: EngineEvaluation, playerColor: "w" | "b", sideToMove: "w" | "b"): number | null {
-  const sign = sideToMove === playerColor ? 1 : -1;
+function scoreForPlayer(evaluation: EngineEvaluation, playerColor: "w" | "b"): number | null {
+  const sign = playerColor === "w" ? 1 : -1;
   if (evaluation.mateIn !== null) return Math.sign(evaluation.mateIn) * 10000 * sign;
   if (evaluation.scoreCp !== null) return evaluation.scoreCp * sign;
   return null;
@@ -86,9 +86,16 @@ function classifyMistake(
     };
   }
 
+  if (lossCp >= 150) {
+    return {
+      severity: "Mistake",
+      category: "Calculation"
+    };
+  }
+
   return {
-    severity: "Mistake",
-    category: "Calculation"
+    severity: "Inaccuracy",
+    category: "Positional"
   };
 }
 
@@ -104,7 +111,7 @@ export async function analyseGame(
   }
 ): Promise<GameAnalysisResult> {
   const playerColor = args.playerColor ?? "w";
-  const maxPlayerMoves = args.maxPlayerMoves ?? 18;
+  const maxPlayerMoves = args.maxPlayerMoves ?? 60;
   const depth = args.depth ?? 8;
 
   const loaded = new Chess();
@@ -169,9 +176,8 @@ export async function analyseGame(
     const fenAfter = replay.fen();
     const after = await analysePosition(fenAfter, { depth: Math.max(6, depth - 1), skillLevel: 20 });
 
-    const sideAfter = fenAfter.split(/\s+/)[1] === "b" ? "b" : "w";
-    const beforeScore = scoreForPlayer(before, playerColor, playerColor);
-    const afterScore = scoreForPlayer(after, playerColor, sideAfter);
+    const beforeScore = scoreForPlayer(before, playerColor);
+    const afterScore = scoreForPlayer(after, playerColor);
     const lossCp = beforeScore !== null && afterScore !== null ? Math.max(0, Math.round(beforeScore - afterScore)) : 0;
 
     if (lossCp < 75) continue;
@@ -193,8 +199,8 @@ export async function analyseGame(
       goal: `Find a stronger move than ${played.san}.`,
       hint: `Stockfish prefers ${bestSan}. Scan forcing moves before committing.`,
       success: `The stronger move is ${bestSan}. The position changed by about ${Math.round(lossCp / 10) / 10} pawns.`,
-      evaluationBefore: before.mateIn !== null ? null : before.scoreCp,
-      evaluationAfter: after.mateIn !== null ? null : scoreForPlayer(after, playerColor, sideAfter),
+      evaluationBefore: before.mateIn !== null ? null : beforeScore,
+      evaluationAfter: after.mateIn !== null ? null : afterScore,
       lossCp,
       bestLine: pvSan,
       createdAt: new Date().toISOString()

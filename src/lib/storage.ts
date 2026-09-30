@@ -20,8 +20,62 @@ export const defaultProgress: TutorProgress = {
   lastActiveDate: null
 };
 
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+export function generateUuid(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+export function localDateKey(d = new Date()) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function mergeProgress(local: TutorProgress, cloud: TutorProgress): TutorProgress {
+  const unionLessons = Array.from(new Set([...(local.completedLessons || []), ...(cloud.completedLessons || [])]));
+  const solved = Math.max(local.solvedPositions, cloud.solvedPositions);
+  const mistakes = Math.max(local.recordedMistakes, cloud.recordedMistakes);
+  const total = solved + mistakes;
+  const accuracy = total > 0 ? Math.round((solved / total) * 100) : Math.max(local.weeklyAccuracy, cloud.weeklyAccuracy);
+  const streak = Math.max(local.streak, cloud.streak);
+  const latestDate = !local.lastActiveDate
+    ? cloud.lastActiveDate
+    : !cloud.lastActiveDate
+    ? local.lastActiveDate
+    : local.lastActiveDate > cloud.lastActiveDate
+    ? local.lastActiveDate
+    : cloud.lastActiveDate;
+
+  return {
+    solvedPositions: solved,
+    recordedMistakes: mistakes,
+    weeklyAccuracy: accuracy,
+    streak,
+    completedLessons: unionLessons,
+    lastActiveDate: latestDate,
+    reviewDue: Math.max(local.reviewDue, cloud.reviewDue)
+  };
+}
+
+export function clearLocalData() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(GAMES_KEY);
+    window.localStorage.removeItem(REVIEW_KEY);
+    window.localStorage.removeItem(SETTINGS_KEY);
+    window.localStorage.removeItem(ATTEMPTS_KEY);
+    window.localStorage.removeItem(GAME_MISTAKES_KEY);
+  } catch {
+    // Ignore storage clear errors
+  }
 }
 
 export function loadProgress(): TutorProgress {
@@ -61,16 +115,16 @@ export function saveProgress(progress: TutorProgress) {
 }
 
 export function touchActivity(progress: TutorProgress): TutorProgress {
-  const today = todayKey();
+  const today = localDateKey();
   if (progress.lastActiveDate === today) return progress;
 
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayKey = yesterday.toISOString().slice(0, 10);
+  const yesterdayKey = localDateKey(yesterday);
 
   return {
     ...progress,
-    streak: progress.lastActiveDate === yesterdayKey ? progress.streak + 1 : Math.max(1, progress.streak),
+    streak: progress.lastActiveDate === yesterdayKey ? progress.streak + 1 : 1,
     lastActiveDate: today
   };
 }
