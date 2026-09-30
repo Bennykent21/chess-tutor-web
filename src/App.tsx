@@ -576,7 +576,7 @@ function App() {
                 return [...byKey.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 100);
               });
               if (authUser && cloudSyncedFor === authUser.id) {
-                void Promise.all(mistakes.map(mistake => recordGameMistake({ userId: authUser.id, mistake })));
+                void Promise.all(mistakes.map(mistake => recordGameMistake(authUser.id, mistake)));
               }
             }} />}
           {tab === "review" && <ReviewView positions={[...reviewPositions, ...gameMistakes.map(puzzleFromGameMistake)]} due={progress.reviewDue} schedule={reviewSchedule} attemptHistory={attemptHistory} onComplete={completeReview} />}
