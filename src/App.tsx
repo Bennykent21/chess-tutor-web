@@ -407,7 +407,7 @@ function App() {
       const next: TutorProgress = {
         ...active,
         weeklyAccuracy: (() => { const solved = active.solvedPositions + (correct ? 1 : 0); const mistakes = active.recordedMistakes + (correct ? 0 : 1); const attempts = solved + mistakes; return attempts > 0 ? Math.round((solved / attempts) * 100) : active.weeklyAccuracy; })(),
-        reviewDue: active.reviewDue,
+        reviewDue: countDueReviews(reviewSchedule),
         solvedPositions: active.solvedPositions + (correct ? 1 : 0),
         recordedMistakes: active.recordedMistakes + (correct ? 0 : 1),
         completedLessons: lessonTitle && correct && !active.completedLessons.includes(lessonTitle)
