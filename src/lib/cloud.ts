@@ -144,6 +144,7 @@ export async function recordReviewAttempt(args: {
 
 export async function recordGame(args: {
   userId: string;
+  gameId: string;
   opponentName: string;
   opponentElo: number;
   playerColor: "white" | "black";
@@ -153,6 +154,7 @@ export async function recordGame(args: {
   if (!supabase) return;
 
   await supabase.from("games").insert({
+    id: args.gameId,
     user_id: args.userId,
     opponent_name: args.opponentName,
     opponent_elo: args.opponentElo,
