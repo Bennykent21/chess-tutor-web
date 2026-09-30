@@ -1146,6 +1146,7 @@ function PlayView({
     if (authUser && cloudSyncedFor === authUser.id) {
       void recordGame({
         userId: authUser.id,
+        gameId,
         opponentName: botName,
         opponentElo: botElo,
         playerColor: "white",
