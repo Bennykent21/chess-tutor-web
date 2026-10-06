@@ -9,9 +9,11 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleHelp,
+  Database,
   Flag,
   Gauge,
   History,
+  Layers,
   Lightbulb,
   Menu,
   Play,
@@ -58,6 +60,9 @@ import { AuthUser, getAuthUser, loadCloudGameMistakes, loadCloudGames, loadCloud
 import { AuthModal } from "./components/AuthModal";
 import { ChessPiece } from "./components/ChessPiece";
 import { PromotionModal } from "./components/PromotionModal";
+import { LichessExplorerView } from "./components/LichessExplorerView";
+import { AccountReviewer } from "./components/AccountReviewer";
+import { AccountGameSummary } from "./lib/accountStats";
 import { analysePosition, findBestMove, EngineEvaluation } from "./lib/engine";
 import { analyseGame } from "./lib/gameAnalysis";
 
@@ -344,9 +349,32 @@ function App() {
     }
   }, [progress, authUser, cloudSyncedFor]);
 
+  const [explorerFen, setExplorerFen] = useState<string | null>(null);
+  const [learnSubTab, setLearnSubTab] = useState<"explorer" | "curriculum" | "repertoires">("explorer");
+
   function selectTab(next: Tab) {
     setTab(next);
     setMobileMenu(false);
+  }
+
+  function openInLichessExplorer(fen: string) {
+    setExplorerFen(fen);
+    setLearnSubTab("explorer");
+    selectTab("learn");
+  }
+
+  function practiceOpeningPosition(fen: string, title: string, goal?: string) {
+    setTrainingPuzzle({
+      title,
+      category: "Opening Practice",
+      fen,
+      goal: goal || `Find the strongest continuation for ${title} from master games`,
+      hint: "Inspect central control, active pieces, and king safety.",
+      expected: "",
+      success: `Position analyzed and practiced! Engine and master database evaluated.`
+    });
+    setActiveLessonTitle(null);
+    selectTab("train");
   }
 
   function startLesson(lesson: Lesson) {
@@ -597,6 +625,7 @@ function App() {
               onNextDrill={startFocusedDrill}
               onPrevDrill={prevFocusedDrill}
               onSelectDrill={selectDrill}
+              onExplorePosition={openInLichessExplorer}
               allPuzzles={trainingPositions}
               activeLessonTitle={activeLessonTitle}
               profile={profile}
@@ -604,7 +633,15 @@ function App() {
             />
           </div>
           <div style={{ display: tab === "learn" ? "block" : "none" }}>
-            <LearnView onPractice={startLesson} completedLessons={progress.completedLessons} />
+            <LearnView
+              onPractice={startLesson}
+              completedLessons={progress.completedLessons}
+              initialExplorerFen={explorerFen ?? undefined}
+              onPracticeOpening={practiceOpeningPosition}
+              soundCues={settings.soundCues}
+              activeSubTab={learnSubTab}
+              onSubTabChange={setLearnSubTab}
+            />
           </div>
           <div style={{ display: tab === "play" ? "block" : "none" }}>
             <PlayView
@@ -612,6 +649,7 @@ function App() {
               cloudSyncedFor={cloudSyncedFor}
               gameMistakes={gameMistakes}
               settings={settings}
+              onExplorePosition={openInLichessExplorer}
               onMistakesFound={mistakes => {
                 saveGameMistakes(mistakes);
                 setGameMistakes(current => {
@@ -632,6 +670,8 @@ function App() {
               schedule={reviewSchedule}
               attemptHistory={attemptHistory}
               onComplete={completeReview}
+              onTrainOpening={practiceOpeningPosition}
+              onStudyInLearn={openInLichessExplorer}
             />
           </div>
         </main>
@@ -710,7 +750,8 @@ function TrainView({
   onPrevDrill,
   onSelectDrill,
   allPuzzles,
-  activeLessonTitle
+  activeLessonTitle,
+  onExplorePosition
 }: {
   puzzle: Puzzle;
   onHelp: () => void;
@@ -722,6 +763,7 @@ function TrainView({
   onSelectDrill: (puzzle: Puzzle) => void;
   allPuzzles: Puzzle[];
   activeLessonTitle: string | null;
+  onExplorePosition?: (fen: string, title?: string) => void;
 }) {
   const [game, setGame] = useState(() => new Chess(puzzle.fen));
   const [selected, setSelected] = useState<Square | null>(null);
@@ -745,7 +787,14 @@ function TrainView({
   const currentIndex = filteredPuzzles.findIndex(p => p.title === puzzle.title);
 
   useEffect(() => {
-    setGame(new Chess(puzzle.fen));
+    try {
+      const pGame = new Chess(puzzle.fen);
+      setGame(pGame);
+      setOrientation(pGame.turn());
+    } catch (_e) {
+      setGame(new Chess());
+      setOrientation("w");
+    }
     setSelected(null);
     setHintLevel(0);
     setMistake(false);
@@ -789,7 +838,7 @@ function TrainView({
   const showEngineDetails = solved || mistake || hintLevel >= 3;
 
   function clickSquare(square: Square) {
-    if (solved || mistake || game.turn() !== "w") return;
+    if (solved || mistake || game.turn() !== orientation) return;
 
     if (selected && legalTargets.has(square)) {
       const movingPiece = game.get(selected);
@@ -799,9 +848,11 @@ function TrainView({
       if (!move) return;
 
       const playedUci = move.from + move.to;
-      const isExpected = playedUci === puzzle.expected || (playedUci + (move.promotion ?? "")) === puzzle.expected;
+      const isExpected = puzzle.expected ? (playedUci === puzzle.expected || (playedUci + (move.promotion ?? "")) === puzzle.expected) : false;
       const isMatingMove = next.isCheckmate();
-      const isCorrect = isExpected || isMatingMove;
+      const isEngineBest = !puzzle.expected && engineEvaluation?.bestMove ? (playedUci === engineEvaluation.bestMove || (playedUci + (move.promotion ?? "")) === engineEvaluation.bestMove) : false;
+      const isOpenPractice = !puzzle.expected;
+      const isCorrect = isExpected || isMatingMove || isEngineBest || isOpenPractice;
 
       setGame(next);
       setLastMove({ from: move.from, to: move.to });
@@ -810,7 +861,10 @@ function TrainView({
       if (isCorrect) {
         if (settings.soundCues) playCue("success");
         setSolved(true);
-        setMessage(puzzle.success);
+        const successMsg = isEngineBest
+          ? `Excellent move (${move.san})! Stockfish confirms this as the strongest continuation.`
+          : puzzle.success || `Solid move (${move.san})! Strategic plan executed successfully.`;
+        setMessage(successMsg);
         onResult(true, hintLevel, playedUci);
       } else {
         if (settings.soundCues) {
@@ -986,6 +1040,15 @@ function TrainView({
             <button className="secondary-button full" onClick={handleNext}>
               <Play size={16} /> Next focused drill
             </button>
+            {onExplorePosition && (
+              <button
+                className="secondary-button full"
+                onClick={() => onExplorePosition(game.fen(), puzzle.title)}
+                style={{ borderColor: "rgba(224, 171, 82, 0.4)", color: "var(--brass)" }}
+              >
+                <Database size={16} /> Explore in Lichess Database
+              </button>
+            )}
           </div>
 
           <div className="progress-card">
@@ -1116,11 +1179,29 @@ function ChessBoard({
 
 function LearnView({
   onPractice,
-  completedLessons
+  completedLessons,
+  initialExplorerFen,
+  onPracticeOpening,
+  soundCues = true,
+  activeSubTab = "explorer",
+  onSubTabChange
 }: {
   onPractice: (lesson: Lesson) => void;
   completedLessons: string[];
+  initialExplorerFen?: string;
+  onPracticeOpening: (fen: string, title: string, goal?: string) => void;
+  soundCues?: boolean;
+  activeSubTab?: "explorer" | "curriculum" | "repertoires";
+  onSubTabChange?: (tab: "explorer" | "curriculum" | "repertoires") => void;
 }) {
+  const [internalSubTab, setInternalSubTab] = useState<"explorer" | "curriculum" | "repertoires">(activeSubTab);
+  const currentSubTab = onSubTabChange ? activeSubTab : internalSubTab;
+
+  function setSubTab(tab: "explorer" | "curriculum" | "repertoires") {
+    if (onSubTabChange) onSubTabChange(tab);
+    else setInternalSubTab(tab);
+  }
+
   const [filter, setFilter] = useState("All");
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const filters = ["All", "Openings", "Tactics", "Middlegame", "Endgame", "Blunder Patterns"];
@@ -1131,95 +1212,185 @@ function LearnView({
     <>
       <section className="hero-row">
         <div>
-          <span className="eyebrow">CURRICULUM</span>
-          <h1>Build chess knowledge you can actually use</h1>
-          <p>Master curriculum concepts across opening, tactics, strategy, and endgames, then practise them directly on the board.</p>
+          <span className="eyebrow">CHESS MASTERY HUB</span>
+          <h1>Learn openings, theory & master concepts</h1>
+          <p>
+            Connected to the comprehensive Lichess database: explore opening win rates, candidate moves, and master games, then drill them directly in Train mode.
+          </p>
         </div>
-        <button className="secondary-button" onClick={() => setFilter("Openings")}>
-          <BookOpen size={16} /> Opening Repertoire
-        </button>
-      </section>
 
-      <div className="learn-progress-banner">
-        <div className="learn-progress-stats">
-          <Award size={24} color="var(--brass)" />
-          <div>
-            <b>{completedLessons.length} of {lessonCatalog.length} lessons mastered</b>
-            <span style={{ display: "block", color: "var(--text-3)", fontSize: "12px", marginTop: "2px" }}>
-              {completionPercentage}% complete · Solved in interactive training drills
-            </span>
-          </div>
-        </div>
-        <div className="learn-progress-bar-wrap">
-          <div className="learn-progress-bar">
-            <span style={{ width: `${Math.min(100, Math.max(4, completionPercentage))}%` }} />
-          </div>
-        </div>
-        <span className="learn-progress-pct">{completionPercentage}%</span>
-      </div>
-
-      <div className="filter-row">
-        {filters.map(f => (
-          <button key={f} className={filter === f ? "filter-chip active" : "filter-chip"} onClick={() => setFilter(f)}>
-            {f}
+        <div className="filter-chips-row">
+          <button
+            type="button"
+            className={currentSubTab === "explorer" ? "filter-chip active" : "filter-chip"}
+            onClick={() => setSubTab("explorer")}
+          >
+            <Database size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: "4px" }} />
+            Opening Explorer & DB
           </button>
-        ))}
-      </div>
-
-      <section className="lesson-grid">
-        {visibleLessons.map((lesson, i) => {
-          const isCompleted = completedLessons.includes(lesson.title);
-          return (
-            <article className="lesson-card" key={lesson.title}>
-              <div className="lesson-number">{String(i + 1).padStart(2, "0")}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <span className="rank-pill">{lesson.category}</span>
-                {lesson.rank && <span className="rank-pill mono">{lesson.rank}</span>}
-              </div>
-              <h3>{lesson.title}</h3>
-              <div className="mono lesson-subtitle">{lesson.subtitle}</div>
-              <p>{lesson.copy}</p>
-              <div className="lesson-actions">
-                <button className="text-action" onClick={() => setSelectedLesson(lesson)}>
-                  Read lesson <ChevronRight size={14} />
-                </button>
-                {lesson.fen && lesson.move ? (
-                  <button className="text-action secondary-action" onClick={() => onPractice(lesson)}>
-                    Practise <Play size={13} />
-                  </button>
-                ) : (
-                  <span className="lesson-status">Read first</span>
-                )}
-                {isCompleted && (
-                  <span className="lesson-complete">
-                    <CheckCircle2 size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: "3px" }} />
-                    Completed
-                  </span>
-                )}
-              </div>
-            </article>
-          );
-        })}
+          <button
+            type="button"
+            className={currentSubTab === "curriculum" ? "filter-chip active" : "filter-chip"}
+            onClick={() => setSubTab("curriculum")}
+          >
+            <BookOpen size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: "4px" }} />
+            Curriculum Lessons
+          </button>
+          <button
+            type="button"
+            className={currentSubTab === "repertoires" ? "filter-chip active" : "filter-chip"}
+            onClick={() => setSubTab("repertoires")}
+          >
+            <Layers size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: "4px" }} />
+            Repertoires
+          </button>
+        </div>
       </section>
 
-      <section className="repertoire-strip">
-        <div>
-          <span className="eyebrow">OPENING COURSES</span>
-          <h2>Repertoire in progress</h2>
-          <p>Course progress is based on lessons you actually complete. Sign in to sync it across devices.</p>
+      {/* SubTab 1: Embedded Lichess Opening Explorer & Database */}
+      {currentSubTab === "explorer" && (
+        <div style={{ marginTop: "12px" }}>
+          <LichessExplorerView
+            initialFen={initialExplorerFen}
+            onPracticePosition={(fen, title, goal) => {
+              onPracticeOpening(
+                fen,
+                title,
+                goal || `Practice the theoretical moves for ${title} from the master database.`
+              );
+            }}
+            soundCues={soundCues}
+          />
         </div>
-        <div className="repertoire-pills">
-          {openingCourses.map(c => {
-            const completed = completedLessons.includes(c.name) || completedLessons.includes("The " + c.name);
-            return (
-              <button key={c.name} className="repertoire-pill" onClick={() => setFilter("Openings")}>
-                {c.name}
-                <b>{completed ? "Complete" : "Open"}</b>
+      )}
+
+      {/* SubTab 2: Curriculum Lessons */}
+      {currentSubTab === "curriculum" && (
+        <div style={{ marginTop: "12px" }}>
+          <div className="learn-progress-banner">
+            <div className="learn-progress-stats">
+              <Award size={24} color="var(--brass)" />
+              <div>
+                <b>{completedLessons.length} of {lessonCatalog.length} lessons mastered</b>
+                <span style={{ display: "block", color: "var(--text-3)", fontSize: "12px", marginTop: "2px" }}>
+                  {completionPercentage}% complete · Solved in interactive training drills
+                </span>
+              </div>
+            </div>
+            <div className="learn-progress-bar-wrap">
+              <div className="learn-progress-bar">
+                <span style={{ width: `${Math.min(100, Math.max(4, completionPercentage))}%` }} />
+              </div>
+            </div>
+            <span className="learn-progress-pct">{completionPercentage}%</span>
+          </div>
+
+          <div className="filter-row">
+            {filters.map(f => (
+              <button key={f} className={filter === f ? "filter-chip active" : "filter-chip"} onClick={() => setFilter(f)}>
+                {f}
               </button>
-            );
-          })}
+            ))}
+          </div>
+
+          <section className="lesson-grid">
+            {visibleLessons.map((lesson, i) => {
+              const isCompleted = completedLessons.includes(lesson.title);
+              return (
+                <article className="lesson-card" key={lesson.title}>
+                  <div className="lesson-number">{String(i + 1).padStart(2, "0")}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span className="rank-pill">{lesson.category}</span>
+                    {lesson.rank && <span className="rank-pill mono">{lesson.rank}</span>}
+                  </div>
+                  <h3>{lesson.title}</h3>
+                  <div className="mono lesson-subtitle">{lesson.subtitle}</div>
+                  <p>{lesson.copy}</p>
+                  <div className="lesson-actions">
+                    <button className="text-action" onClick={() => setSelectedLesson(lesson)}>
+                      Read lesson <ChevronRight size={14} />
+                    </button>
+                    {lesson.fen && lesson.move ? (
+                      <button className="text-action secondary-action" onClick={() => onPractice(lesson)}>
+                        Practise in Train <Play size={13} />
+                      </button>
+                    ) : (
+                      <span className="lesson-status">Read first</span>
+                    )}
+                    {isCompleted && (
+                      <span className="lesson-complete">
+                        <CheckCircle2 size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: "3px" }} />
+                        Completed
+                      </span>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </section>
         </div>
-      </section>
+      )}
+
+      {/* SubTab 3: Opening Repertoire Courses */}
+      {currentSubTab === "repertoires" && (
+        <div style={{ marginTop: "12px" }}>
+          <section className="repertoire-strip" style={{ marginBottom: "20px" }}>
+            <div>
+              <span className="eyebrow">CURATED OPENING COURSES</span>
+              <h2>Opening Repertoires</h2>
+              <p>Study master lines, explore complete move trees in the Lichess database, or drill variations in Train mode.</p>
+            </div>
+          </section>
+
+          <div className="lesson-grid">
+            {openingCourses.map(course => (
+              <article className="lesson-card" key={course.name}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span className="rank-pill">Opening Course</span>
+                  <span className="rank-pill mono">{course.targetRating}</span>
+                </div>
+                <h3>{course.name}</h3>
+                <div className="mono lesson-subtitle">{course.description}</div>
+                <div style={{ margin: "10px 0" }}>
+                  <span className="text-xs text-zinc-400 font-medium">Core Variation:</span>
+                  <p className="mono text-xs text-amber-400 mt-1">{course.line.join(" ")}</p>
+                </div>
+                <div className="lesson-actions">
+                  <button
+                    className="text-action secondary-action"
+                    onClick={() => {
+                      // Generate starting FEN from moves
+                      const c = new Chess();
+                      for (const m of course.line) {
+                        try { c.move(m); } catch (_e) { break; }
+                      }
+                      onPracticeOpening(
+                        c.fen(),
+                        course.name,
+                        `Master the key responses and middlegame plans for ${course.name}.`
+                      );
+                    }}
+                  >
+                    Train in Train <Play size={13} />
+                  </button>
+                  <button
+                    className="text-action"
+                    onClick={() => {
+                      const c = new Chess();
+                      for (const m of course.line) {
+                        try { c.move(m); } catch (_e) { break; }
+                      }
+                      setSubTab("explorer");
+                    }}
+                  >
+                    Explore in DB <ChevronRight size={14} />
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
 
       {selectedLesson && (
         <Modal title={selectedLesson.title} onClose={() => setSelectedLesson(null)}>
@@ -1268,7 +1439,7 @@ function LearnView({
                   setSelectedLesson(null);
                 }}
               >
-                <Play size={16} /> Train this position
+                <Play size={16} /> Train this position in Train
               </button>
             )}
           </div>
@@ -1278,17 +1449,100 @@ function LearnView({
   );
 }
 
+interface PlayableOpening {
+  id: string;
+  name: string;
+  eco: string;
+  moves: string[];
+  ideas: string;
+}
+
+const PLAYABLE_OPENINGS: PlayableOpening[] = [
+  {
+    id: "standard",
+    name: "Standard Starting Position",
+    eco: "A00",
+    moves: [],
+    ideas: "Fight for central control (e4, d4, e5, d5), develop minor pieces (knights before bishops), and castle early to ensure king safety."
+  },
+  {
+    id: "italian",
+    name: "Italian Game",
+    eco: "C50",
+    moves: ["e4", "e5", "Nf3", "Nc6", "Bc4"],
+    ideas: "Direct pressure against the vulnerable f7 square. White aims to control the center with c3 and d4, while Black counters with ...Bc5 or ...Nf6."
+  },
+  {
+    id: "sicilian",
+    name: "Sicilian Defense (Open)",
+    eco: "B20",
+    moves: ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3"],
+    ideas: "Dynamic asymmetrical fight. Black exchanges a flank c-pawn for White's center d-pawn, creating a central pawn majority and sharp queenside play."
+  },
+  {
+    id: "ruy-lopez",
+    name: "Ruy Lopez (Spanish Opening)",
+    eco: "C60",
+    moves: ["e4", "e5", "Nf3", "Nc6", "Bb5"],
+    ideas: "White pressures Black's knight on c6 to weaken defense of the central e5 square. Deep strategic maneuvering on both flanks."
+  },
+  {
+    id: "french",
+    name: "French Defense",
+    eco: "C00",
+    moves: ["e4", "e6", "d4", "d5"],
+    ideas: "Solid central chain. Black stakes a claim on d5. When White advances e5, Black relentlessly attacks the base of White's pawn chain with ...c5."
+  },
+  {
+    id: "caro-kann",
+    name: "Caro-Kann Defense",
+    eco: "B10",
+    moves: ["e4", "c6", "d4", "d5"],
+    ideas: "Ultra-solid pawn structure. Unlike the French, Black's light-squared bishop develops freely to f5 or g4 before playing ...e6."
+  },
+  {
+    id: "queens-gambit",
+    name: "Queen's Gambit",
+    eco: "D06",
+    moves: ["d4", "d5", "c4"],
+    ideas: "White offers a flank pawn on c4 to draw Black's d5 pawn away from the center and dominate the board with pawns on d4 and e4."
+  },
+  {
+    id: "kings-indian",
+    name: "King's Indian Defense",
+    eco: "E60",
+    moves: ["d4", "Nf6", "c4", "g6", "Nc3", "Bg7", "e4", "d6"],
+    ideas: "Hypermodern defense. Black concedes initial space to build a king fortress, then counterattacks with ...e5 and kingside pawn storms."
+  },
+  {
+    id: "english",
+    name: "English Opening",
+    eco: "A10",
+    moves: ["c4"],
+    ideas: "Wing control over the central d5 square. Flexible setup often transposing into 1.d4 structures or fianchettoing on the long diagonal."
+  },
+  {
+    id: "london",
+    name: "London System",
+    eco: "D00",
+    moves: ["d4", "d5", "Bf4", "Nf6", "e3"],
+    ideas: "Solid universal system. White develops the dark-squared bishop outside the pawn chain before locking the center with e3 and c3."
+  }
+];
+
 function PlayView({
   authUser,
   cloudSyncedFor,
   gameMistakes,
   settings,
+  onExplorePosition,
   onMistakesFound
 }: {
   authUser: AuthUser | null;
   cloudSyncedFor: string | null;
   gameMistakes: TutorGameMistake[];
   settings: TutorSettings;
+  onExplorePosition?: (fen: string) => void;
   onMistakesFound: (mistakes: TutorGameMistake[]) => void;
 }) {
   const [localGames, setLocalGames] = useState<TutorGameRecord[]>(() => loadGameHistory());
@@ -1316,6 +1570,13 @@ function PlayView({
       active = false;
     };
   }, [authUser, cloudSyncedFor]);
+
+  const [selectedOpeningId, setSelectedOpeningId] = useState<string>("standard");
+  const [liveEngineScore, setLiveEngineScore] = useState<string>("0.0");
+  const [engineHint, setEngineHint] = useState<string | null>(null);
+  const [isHintLoading, setIsHintLoading] = useState(false);
+
+  const activeOpening = PLAYABLE_OPENINGS.find(o => o.id === selectedOpeningId) || PLAYABLE_OPENINGS[0];
 
   const [game, setGame] = useState(() => new Chess());
   const [playerColor, setPlayerColor] = useState<"w" | "b">("w");
@@ -1739,6 +2000,15 @@ function PlayView({
                 >
                   <Sparkles size={13} /> {copiedPgn ? "Copied!" : "Copy PGN"}
                 </button>
+                {onExplorePosition && (
+                  <button
+                    className="in-game-action-btn"
+                    onClick={() => onExplorePosition(game.fen())}
+                    title="Explore current board in Lichess database"
+                  >
+                    <Database size={13} /> Lichess DB
+                  </button>
+                )}
               </div>
             </div>
 

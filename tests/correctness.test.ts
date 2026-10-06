@@ -109,3 +109,39 @@ test("applyReviewResult spaced repetition scheduling", () => {
   assert.equal(afterMiss[0].intervalDays, 1, "Mistake must reset interval to 1 day");
   assert.equal(afterMiss[0].lastResult, "wrong");
 });
+
+test("Lichess Opening Database provides accurate ECO, win percentages, and candidate moves", async () => {
+  const { getLocalOpeningStats, normalizeFen } = await import("../src/data/openingsDatabase.ts");
+  const { fetchLichessOpeningStats } = await import("../src/lib/lichess.ts");
+
+  // 1. Initial position
+  const initialFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  const initialStats = getLocalOpeningStats(initialFen);
+  assert.ok(initialStats, "Initial position must exist in Lichess database");
+  assert.equal(initialStats.eco, "A00");
+  assert.equal(initialStats.whiteWinPct + initialStats.drawPct + initialStats.blackWinPct, 100);
+  assert.ok(initialStats.moves.length >= 4, "Must offer top moves (e4, d4, Nf3, c4)");
+
+  // 2. 1. e4 King's Pawn
+  const e4Fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
+  const e4Stats = getLocalOpeningStats(e4Fen);
+  assert.ok(e4Stats);
+  assert.equal(e4Stats.name, "King's Pawn Game");
+  const c5Move = e4Stats.moves.find(m => m.san === "c5");
+  assert.ok(c5Move, "Sicilian c5 must be top candidate response");
+  assert.equal(c5Move.whiteWinPct + c5Move.drawPct + c5Move.blackWinPct, 100);
+
+  // 3. Italian Game
+  const italianFen = "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3";
+  const italianStats = getLocalOpeningStats(italianFen);
+  assert.ok(italianStats);
+  assert.equal(italianStats.eco, "C50");
+  assert.equal(italianStats.name, "Italian Game");
+
+  // 4. Explorer fetch fallback works seamlessly
+  const explorerResult = await fetchLichessOpeningStats({ fen: italianFen });
+  assert.ok(explorerResult.stats);
+  assert.equal(explorerResult.stats.eco, "C50");
+  assert.ok(explorerResult.stats.moves.length > 0);
+});
+
