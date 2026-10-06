@@ -2,10 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Chess, Square } from "chess.js";
 import {
   ArrowLeftRight,
+  Award,
   BookOpen,
   Brain,
+  CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   CircleHelp,
+  Flag,
   Gauge,
   History,
   Lightbulb,
@@ -14,13 +18,15 @@ import {
   RotateCcw,
   Settings,
   Shield,
+  Sparkles,
   Swords,
   Target,
   Trophy,
+  Undo2,
   X,
   Zap
 } from "lucide-react";
-import { curriculumLessons, openingCourses } from "./data/content";
+import { curriculumLessons, openingCourses, trainingPuzzles } from "./data/content";
 import {
   applyReviewResult,
   clearLocalData,
@@ -76,6 +82,7 @@ type Lesson = {
   fen?: string;
   move?: string;
   explanation: string;
+  rank?: string;
 };
 
 const tabs = [
@@ -85,128 +92,20 @@ const tabs = [
   { id: "review" as const, label: "Review", icon: History }
 ];
 
-const trainingPositions: Puzzle[] = [
-  {
-    title: "Forced mate in one",
-    category: "Blunder Patterns",
-    fen: "7k/5Q2/7K/8/8/8/8/8 w - - 0 1",
-    goal: "Find a move that delivers checkmate in one.",
-    hint: "Look for a queen move that gives check while staying protected by your king.",
-    expected: "f7g7",
-    success: "Checkmate! The queen seals all escape squares while your king protects g7."
-  },
-  {
-    title: "Develop with tempo",
-    category: "Opening",
-    fen: "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3",
-    goal: "Continue development and place a bishop on an active diagonal.",
-    hint: "Develop the bishop toward the sensitive f7 square.",
-    expected: "f1c4",
-    success: "Good. Bc4 develops with purpose and puts immediate pressure on f7."
-  },
-  {
-    title: "Royal knight fork",
-    category: "Tactics",
-    fen: "1r1qk3/8/8/4N3/8/8/8/4K3 w - - 0 1",
-    goal: "Win material by forking the queen and rook.",
-    hint: "Find a knight square that attacks both d8 and b8 at once.",
-    expected: "e5c6",
-    success: "Fork found. Nc6 attacks the queen on d8 and rook on b8 simultaneously."
-  },
-  {
-    title: "Back-rank checkmate",
-    category: "Blunder Patterns",
-    fen: "6k1/5ppp/8/8/8/8/5PPP/4R1K1 w - - 0 1",
-    goal: "Use the trapped king's lack of escape squares.",
-    hint: "Look for a rook move that checks along the eighth rank.",
-    expected: "e1e8",
-    success: "Checkmate. The rook controls the eighth rank while the black pawns take away the king's escape squares."
-  }
-];
+const trainingPositions: Puzzle[] = trainingPuzzles;
 
-const lessons: Lesson[] = [
-  {
-    title: "Golden Rules of Opening",
-    subtitle: "Center Control & Rapid Development",
-    category: "Openings",
-    copy: "Control the center, develop pieces, and castle before you start a side attack.",
-    fen: "rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
-    move: "d2d4",
-    explanation: "A second central pawn makes your position easier to develop and gives the c1 bishop a useful diagonal."
-  },
-  {
-    title: "Italian Game",
-    subtitle: "1. e4 e5 2. Nf3 Nc6 3. Bc4",
-    category: "Openings",
-    copy: "Develop with tempo against the center and put immediate pressure on f7.",
-    fen: "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3",
-    move: "f1c4",
-    explanation: "The bishop develops to an active diagonal and immediately points at the sensitive f7 square."
-  },
-  {
-    title: "Royal Knight Fork",
-    subtitle: "Simultaneous Multi-Square Strikes",
-    category: "Tactics",
-    copy: "A fork works because one piece cannot answer two forcing threats at once.",
-    fen: "2q1k3/8/8/8/2N5/8/8/4K3 w - - 0 1",
-    move: "c4d6",
-    explanation: "Nd6+ forks the king on e8 and queen on c8, winning decisive material."
-  },
-  {
-    title: "Outposts & Knight Strongholds",
-    subtitle: "Dominating the 5th and 6th Ranks",
-    category: "Middlegame",
-    copy: "Look for squares the opponent cannot challenge with a pawn and make those squares permanent assets.",
-    fen: "r1bqkb1r/pp3ppp/2n5/4p3/4P3/2N5/PPP2PPP/R1BQK2R w KQkq - 0 1",
-    move: "c3d5",
-    explanation: "The knight lands on the d5 outpost, supported by e4, where no enemy pawn can dislodge it."
-  },
-  {
-    title: "Opposition & Key Squares",
-    subtitle: "The Universal King & Pawn Blueprint",
-    category: "Endgame",
-    copy: "King activity and taking the opposition decide king-and-pawn endings.",
-    fen: "8/8/3k4/8/3K4/4P3/8/8 w - - 0 1",
-    move: "e3e4",
-    explanation: "Pushing e4 seizes the opposition and forces the enemy king to give ground, enabling pawn promotion."
-  },
-  {
-    title: "Missed Mate in 1",
-    subtitle: "Decisive Tactical Blindness",
-    category: "Blunder Patterns",
-    copy: "Train the habit of scanning every legal check before moving a quiet piece.",
-    fen: "7k/5Q2/7K/8/8/8/8/8 w - - 0 1",
-    move: "f7g7",
-    explanation: "Qg7# delivers checkmate because the queen covers h8, h7 and g8 while the king protects g7."
-  }
-];
+const lessonCatalog: Lesson[] = curriculumLessons.map(item => ({
+  title: item.title,
+  subtitle: item.subtitle,
+  category: item.category,
+  copy: item.copy,
+  fen: item.fen,
+  move: item.move,
+  explanation: item.explanation,
+  rank: item.rank
+}));
 
-const curriculumOnlyLessons: Lesson[] = curriculumLessons
-  .filter(item => !lessons.some(lesson => lesson.title === item.title))
-  .map(item => ({
-    title: item.title,
-    subtitle: item.subtitle,
-    category: item.category,
-    copy: item.copy,
-    explanation: item.copy
-  }));
-
-const lessonCatalog: Lesson[] = [...lessons, ...curriculumOnlyLessons];
-
-const reviewPositions: Puzzle[] = [
-  trainingPositions[0],
-  {
-    title: "Hanging queen",
-    category: "Blunder Patterns",
-    fen: "4k3/8/8/8/3q4/8/3R4/4K3 w - - 0 1",
-    goal: "Notice the loose queen before making a quiet move.",
-    hint: "Scan for forcing captures first.",
-    expected: "d2d4",
-    success: "The rook can simply take the queen. The review habit is to inspect checks and captures before deeper plans."
-  },
-  trainingPositions[2],
-  trainingPositions[3]
-];
+const reviewPositions: Puzzle[] = trainingPuzzles.slice(0, 10);
 
 function puzzleFromGameMistake(mistake: TutorGameMistake): Puzzle {
   return {
@@ -465,6 +364,18 @@ function App() {
     setTab("train");
   }
 
+  function selectDrill(puzzle: Puzzle) {
+    setTrainingPuzzle(puzzle);
+    setActiveLessonTitle(null);
+  }
+
+  function prevFocusedDrill() {
+    const currentIndex = trainingPositions.findIndex(item => item.title === trainingPuzzle.title);
+    const prev = trainingPositions[(currentIndex - 1 + trainingPositions.length) % trainingPositions.length];
+    setTrainingPuzzle(prev);
+    setActiveLessonTitle(null);
+  }
+
   function startFocusedDrill() {
     const currentIndex = trainingPositions.findIndex(item => item.title === trainingPuzzle.title);
     const next = trainingPositions[(currentIndex + 1 + trainingPositions.length) % trainingPositions.length];
@@ -684,6 +595,10 @@ function App() {
               onHelp={() => setHelpOpen(true)}
               onResult={(correct, hintsUsed, playedMove) => recordTrainingResult(correct, trainingPuzzle, activeLessonTitle ?? undefined, hintsUsed, playedMove)}
               onNextDrill={startFocusedDrill}
+              onPrevDrill={prevFocusedDrill}
+              onSelectDrill={selectDrill}
+              allPuzzles={trainingPositions}
+              activeLessonTitle={activeLessonTitle}
               profile={profile}
               settings={settings}
             />
@@ -696,6 +611,7 @@ function App() {
               authUser={authUser}
               cloudSyncedFor={cloudSyncedFor}
               gameMistakes={gameMistakes}
+              settings={settings}
               onMistakesFound={mistakes => {
                 saveGameMistakes(mistakes);
                 setGameMistakes(current => {
@@ -790,7 +706,11 @@ function TrainView({
   onResult,
   profile,
   settings,
-  onNextDrill
+  onNextDrill,
+  onPrevDrill,
+  onSelectDrill,
+  allPuzzles,
+  activeLessonTitle
 }: {
   puzzle: Puzzle;
   onHelp: () => void;
@@ -798,6 +718,10 @@ function TrainView({
   profile: TutorProfile | null;
   settings: TutorSettings;
   onNextDrill: () => void;
+  onPrevDrill: () => void;
+  onSelectDrill: (puzzle: Puzzle) => void;
+  allPuzzles: Puzzle[];
+  activeLessonTitle: string | null;
 }) {
   const [game, setGame] = useState(() => new Chess(puzzle.fen));
   const [selected, setSelected] = useState<Square | null>(null);
@@ -809,6 +733,16 @@ function TrainView({
   const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
   const [engineEvaluation, setEngineEvaluation] = useState<EngineEvaluation | null>(null);
   const [engineThinking, setEngineThinking] = useState(true);
+  const [categoryFilter, setCategoryFilter] = useState("All");
+
+  const categories = ["All", "Tactics", "Openings", "Middlegame", "Endgame", "Blunder Patterns"];
+
+  const filteredPuzzles = useMemo(() => {
+    if (categoryFilter === "All") return allPuzzles;
+    return allPuzzles.filter(p => p.category.toLowerCase() === categoryFilter.toLowerCase());
+  }, [allPuzzles, categoryFilter]);
+
+  const currentIndex = filteredPuzzles.findIndex(p => p.title === puzzle.title);
 
   useEffect(() => {
     setGame(new Chess(puzzle.fen));
@@ -844,6 +778,7 @@ function TrainView({
       active = false;
     };
   }, [game]);
+
   const legalTargets = useMemo(
     () => selected
       ? new Set(game.moves({ square: selected, verbose: true }).map(move => move.to))
@@ -857,6 +792,8 @@ function TrainView({
     if (solved || mistake || game.turn() !== "w") return;
 
     if (selected && legalTargets.has(square)) {
+      const movingPiece = game.get(selected);
+      const isCapture = !!game.get(square) || (movingPiece?.type === "p" && selected[0] !== square[0]);
       const next = new Chess(game.fen());
       const move = next.move({ from: selected, to: square, promotion: "q" });
       if (!move) return;
@@ -876,7 +813,11 @@ function TrainView({
         setMessage(puzzle.success);
         onResult(true, hintLevel, playedUci);
       } else {
-        if (settings.soundCues) playCue("error");
+        if (settings.soundCues) {
+          if (isCapture) playCue("capture");
+          else if (next.isCheck()) playCue("check");
+          else playCue("error");
+        }
         setMistake(true);
         setMessage("That move is legal, but it misses the training objective. Look at the coach note, then retry.");
         onResult(false, hintLevel, playedUci);
@@ -903,31 +844,77 @@ function TrainView({
     setHintLevel(next);
     if (next === 1) setMessage(puzzle.hint);
     if (next === 2) setMessage("Hint 2 · The target move starts from " + puzzle.expected.slice(0, 2) + ". Inspect its legal destinations.");
-    if (next >= 3) setMessage("Answer · " + puzzle.expected.slice(0, 2) + " → " + puzzle.expected.slice(2));
+    if (next >= 3) setMessage("Answer · " + puzzle.expected.slice(0, 2) + " → " + puzzle.expected.slice(2) + " delivers the tactical win.");
   }
 
-  function nextDrill() {
-    onNextDrill();
+  function handleFilterCategory(cat: string) {
+    setCategoryFilter(cat);
+    const inCat = cat === "All" ? allPuzzles : allPuzzles.filter(p => p.category.toLowerCase() === cat.toLowerCase());
+    if (inCat.length && !inCat.some(p => p.title === puzzle.title)) {
+      onSelectDrill(inCat[0]);
+    }
+  }
+
+  function handlePrev() {
+    if (!filteredPuzzles.length) return;
+    const idx = filteredPuzzles.findIndex(p => p.title === puzzle.title);
+    const prev = filteredPuzzles[(idx - 1 + filteredPuzzles.length) % filteredPuzzles.length];
+    onSelectDrill(prev);
+  }
+
+  function handleNext() {
+    if (!filteredPuzzles.length) return;
+    const idx = filteredPuzzles.findIndex(p => p.title === puzzle.title);
+    const next = filteredPuzzles[(idx + 1) % filteredPuzzles.length];
+    onSelectDrill(next);
   }
 
   return (
     <>
       <section className="hero-row">
         <div>
-          <span className="eyebrow">TODAY'S FOCUS</span>
+          <span className="eyebrow">{activeLessonTitle ? "LESSON DRILL" : "TACTICAL DRILL"}</span>
           <h1>{puzzle.title}</h1>
-          <p>{puzzle.category} · Solve the position, then understand why it works.</p>
+          <p>{puzzle.category} · Find the strongest move on the board, then understand why it works.</p>
         </div>
         <button className="secondary-button" onClick={onHelp}><CircleHelp size={16} /> How it works</button>
       </section>
 
+      <div className="drill-toolbar">
+        <div className="drill-filter-chips">
+          {categories.map(c => (
+            <button
+              key={c}
+              className={categoryFilter === c ? "drill-chip active" : "drill-chip"}
+              onClick={() => handleFilterCategory(c)}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+        <div className="drill-nav-actions">
+          <span className="drill-counter">
+            {currentIndex >= 0 ? `${currentIndex + 1} / ${filteredPuzzles.length}` : `${allPuzzles.length} drills`}
+          </span>
+          <button className="drill-nav-btn" onClick={handlePrev} title="Previous drill" aria-label="Previous drill">
+            <ChevronLeft size={16} />
+          </button>
+          <button className="drill-nav-btn" onClick={handleNext} title="Next drill" aria-label="Next drill">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+
       <section className="training-grid">
         <div className="board-card">
           <div className="board-topline">
-            <div><span className="surface-label">COACH BOARD</span><strong>{solved ? "Solved position" : "Training position"}</strong></div>
+            <div>
+              <span className="surface-label">COACH BOARD</span>
+              <strong>{solved ? "Position Solved" : mistake ? "Mistake Detected" : "Find the Winning Move"}</strong>
+            </div>
             <div className="board-tools">
-              <button className="board-tool" onClick={() => setOrientation(v => v === "w" ? "b" : "w")} aria-label="Flip board"><ArrowLeftRight size={17} /></button>
-              <button className="board-tool" onClick={reset} aria-label="Reset position"><RotateCcw size={16} /></button>
+              <button className="board-tool" onClick={() => setOrientation(v => v === "w" ? "b" : "w")} aria-label="Flip board" title="Flip board"><ArrowLeftRight size={17} /></button>
+              <button className="board-tool" onClick={reset} aria-label="Reset position" title="Reset position"><RotateCcw size={16} /></button>
             </div>
           </div>
 
@@ -947,7 +934,7 @@ function TrainView({
 
           <div className="board-bottom">
             <div className="player-row"><div className="player-avatar">{(profile?.username?.[0] ?? "B").toUpperCase()}</div><div><b>{profile?.username ?? "You"}</b><span>{profile ? `${profile.rating} · White` : "Local progress · White"}</span></div></div>
-            <div className="move-state">{game.history().length ? game.history().slice(-8).join("  ") : "Choose a piece to begin"}</div>
+            <div className="move-state">{game.history().length ? game.history().slice(-8).join("  ") : "White to move · Click a piece to begin"}</div>
             <button className="ghost-button" onClick={reset}><RotateCcw size={15} /> Retry</button>
           </div>
         </div>
@@ -957,7 +944,7 @@ function TrainView({
             <div className="coach-icon">{solved ? <Shield size={18} /> : mistake ? <Zap size={18} /> : <Lightbulb size={18} />}</div>
             <div>
               <span className="surface-label">{solved ? "COACH FEEDBACK" : mistake ? "TRY AGAIN" : "COACH NOTE"}</span>
-              <h2>{solved ? "Concrete reason first" : mistake ? "A legal move can still be a bad move" : "Calculate with a checklist"}</h2>
+              <h2>{solved ? "Objective achieved!" : mistake ? "A legal move can still be a tactical blunder" : "Calculate with a checklist"}</h2>
               <p>{coachMessage}</p>
             </div>
           </div>
@@ -970,7 +957,7 @@ function TrainView({
                 {solved
                   ? "Training point secured"
                   : mistake
-                  ? "Mistake recorded locally"
+                  ? "Mistake recorded for Review"
                   : showEngineDetails
                   ? (engineThinking ? "Stockfish is calculating" : "Engine feedback ready")
                   : "Find the strongest move"}
@@ -982,21 +969,37 @@ function TrainView({
                   ? "Engine calculating…"
                   : engineEvaluation?.principalVariation.length
                   ? (mistake ? "Refutation line · " : "Best line · ") + formatPrincipalVariation(game.fen(), engineEvaluation.principalVariation)
-                  : (engineEvaluation ? "Stockfish depth " + engineEvaluation.depth : (hintLevel ? "Hint level " + hintLevel + " / 3" : "Engine unavailable"))}
+                  : (engineEvaluation ? "Stockfish depth " + engineEvaluation.depth : (hintLevel ? "Hint level " + hintLevel + " / 3" : "Engine ready"))}
               </span>
             </div>
           </div>
 
           <div className="coach-actions">
-            <button className="brass-button" onClick={hint} disabled={solved}><Lightbulb size={16} /> {hintLevel ? "Next hint" : "Give me a hint"}</button>
-            {mistake && <button className="secondary-button full" onClick={reset}><RotateCcw size={16} /> Retry the mistake</button>}
-            <button className="secondary-button full" onClick={nextDrill}><Play size={16} /> Next focused drill</button>
+            <button className="brass-button" onClick={hint} disabled={solved}>
+              <Lightbulb size={16} /> {hintLevel ? `Next hint (${hintLevel}/3)` : "Give me a hint"}
+            </button>
+            {mistake && (
+              <button className="secondary-button full" onClick={reset}>
+                <RotateCcw size={16} /> Retry the position
+              </button>
+            )}
+            <button className="secondary-button full" onClick={handleNext}>
+              <Play size={16} /> Next focused drill
+            </button>
           </div>
 
           <div className="progress-card">
-            <div className="progress-head"><span>SESSION</span><strong>{solved ? "1 of 1 position" : mistake ? "Retry available" : "1 position active"}</strong></div>
-            <div className="progress-track"><span style={{ width: solved ? "100%" : mistake ? "55%" : "18%" }} /></div>
-            <div className="progress-foot"><span>Today</span><b>{solved ? "Complete" : "Keep thinking"}</b></div>
+            <div className="progress-head">
+              <span>ACTIVE CATEGORY</span>
+              <strong>{categoryFilter} · {filteredPuzzles.length} positions</strong>
+            </div>
+            <div className="progress-track">
+              <span style={{ width: currentIndex >= 0 ? `${Math.round(((currentIndex + 1) / filteredPuzzles.length) * 100)}%` : "20%" }} />
+            </div>
+            <div className="progress-foot">
+              <span>{puzzle.category}</span>
+              <b>{solved ? "Solved" : mistake ? "Retry" : "In progress"}</b>
+            </div>
           </div>
         </aside>
       </section>
@@ -1122,51 +1125,155 @@ function LearnView({
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const filters = ["All", "Openings", "Tactics", "Middlegame", "Endgame", "Blunder Patterns"];
   const visibleLessons = lessonCatalog.filter(item => filter === "All" || item.category === filter);
+  const completionPercentage = Math.round((completedLessons.length / lessonCatalog.length) * 100);
 
   return (
     <>
       <section className="hero-row">
-        <div><span className="eyebrow">LEARN</span><h1>Build chess knowledge you can actually use</h1><p>Learn a concept, see the position, then move it straight into your training queue.</p></div>
-        <button className="secondary-button" onClick={() => setFilter("Openings")}><BookOpen size={16} /> Curriculum</button>
+        <div>
+          <span className="eyebrow">CURRICULUM</span>
+          <h1>Build chess knowledge you can actually use</h1>
+          <p>Master curriculum concepts across opening, tactics, strategy, and endgames, then practise them directly on the board.</p>
+        </div>
+        <button className="secondary-button" onClick={() => setFilter("Openings")}>
+          <BookOpen size={16} /> Opening Repertoire
+        </button>
       </section>
 
-      <div className="filter-row">{filters.map(f => <button key={f} className={filter === f ? "filter-chip active" : "filter-chip"} onClick={() => setFilter(f)}>{f}</button>)}</div>
+      <div className="learn-progress-banner">
+        <div className="learn-progress-stats">
+          <Award size={24} color="var(--brass)" />
+          <div>
+            <b>{completedLessons.length} of {lessonCatalog.length} lessons mastered</b>
+            <span style={{ display: "block", color: "var(--text-3)", fontSize: "12px", marginTop: "2px" }}>
+              {completionPercentage}% complete · Solved in interactive training drills
+            </span>
+          </div>
+        </div>
+        <div className="learn-progress-bar-wrap">
+          <div className="learn-progress-bar">
+            <span style={{ width: `${Math.min(100, Math.max(4, completionPercentage))}%` }} />
+          </div>
+        </div>
+        <span className="learn-progress-pct">{completionPercentage}%</span>
+      </div>
+
+      <div className="filter-row">
+        {filters.map(f => (
+          <button key={f} className={filter === f ? "filter-chip active" : "filter-chip"} onClick={() => setFilter(f)}>
+            {f}
+          </button>
+        ))}
+      </div>
 
       <section className="lesson-grid">
-        {visibleLessons.map((lesson, i) => (
-          <article className="lesson-card" key={lesson.title}>
-            <div className="lesson-number">{String(i + 1).padStart(2, "0")}</div>
-            <span className="rank-pill">{lesson.category}</span>
-            <h3>{lesson.title}</h3>
-            <div className="mono lesson-subtitle">{lesson.subtitle}</div>
-            <p>{lesson.copy}</p>
-            <div className="lesson-actions">
-              <button className="text-action" onClick={() => setSelectedLesson(lesson)}>Read lesson <ChevronRight size={14} /></button>
-              {lesson.fen && lesson.move
-                ? <button className="text-action secondary-action" onClick={() => onPractice(lesson)}>Practise <Play size={13} /></button>
-                : <span className="lesson-status">Read first</span>}
-              {completedLessons.includes(lesson.title) && <span className="lesson-complete">Completed</span>}
-            </div>
-          </article>
-        ))}
+        {visibleLessons.map((lesson, i) => {
+          const isCompleted = completedLessons.includes(lesson.title);
+          return (
+            <article className="lesson-card" key={lesson.title}>
+              <div className="lesson-number">{String(i + 1).padStart(2, "0")}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span className="rank-pill">{lesson.category}</span>
+                {lesson.rank && <span className="rank-pill mono">{lesson.rank}</span>}
+              </div>
+              <h3>{lesson.title}</h3>
+              <div className="mono lesson-subtitle">{lesson.subtitle}</div>
+              <p>{lesson.copy}</p>
+              <div className="lesson-actions">
+                <button className="text-action" onClick={() => setSelectedLesson(lesson)}>
+                  Read lesson <ChevronRight size={14} />
+                </button>
+                {lesson.fen && lesson.move ? (
+                  <button className="text-action secondary-action" onClick={() => onPractice(lesson)}>
+                    Practise <Play size={13} />
+                  </button>
+                ) : (
+                  <span className="lesson-status">Read first</span>
+                )}
+                {isCompleted && (
+                  <span className="lesson-complete">
+                    <CheckCircle2 size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: "3px" }} />
+                    Completed
+                  </span>
+                )}
+              </div>
+            </article>
+          );
+        })}
       </section>
 
       <section className="repertoire-strip">
-        <div><span className="eyebrow">OPENING COURSES</span><h2>Repertoire in progress</h2><p>Course progress is based on lessons you actually complete. Sign in to sync it across devices.</p></div>
-        <div className="repertoire-pills">{openingCourses.slice(0, 4).map(c => {
-          const completed = completedLessons.includes(c.name) || completedLessons.includes("The " + c.name);
-          return <button key={c.name} className="repertoire-pill" onClick={() => setFilter("Openings")}>{c.name}<b>{completed ? "Complete" : "Open"}</b></button>;
-        })}</div>
+        <div>
+          <span className="eyebrow">OPENING COURSES</span>
+          <h2>Repertoire in progress</h2>
+          <p>Course progress is based on lessons you actually complete. Sign in to sync it across devices.</p>
+        </div>
+        <div className="repertoire-pills">
+          {openingCourses.map(c => {
+            const completed = completedLessons.includes(c.name) || completedLessons.includes("The " + c.name);
+            return (
+              <button key={c.name} className="repertoire-pill" onClick={() => setFilter("Openings")}>
+                {c.name}
+                <b>{completed ? "Complete" : "Open"}</b>
+              </button>
+            );
+          })}
+        </div>
       </section>
 
-      {selectedLesson && <Modal title={selectedLesson.title} onClose={() => setSelectedLesson(null)}>
-        <div className="lesson-modal">
-          <div className="lesson-modal-meta"><span className="rank-pill">{selectedLesson.category}</span><span className="mono">{selectedLesson.subtitle}</span></div>
-          <p>{selectedLesson.copy}</p>
-          <div className="lesson-why"><span className="surface-label">WHY IT MATTERS</span><p>{selectedLesson.explanation}</p></div>
-          {selectedLesson.fen && selectedLesson.move && <button className="brass-button" onClick={() => { onPractice(selectedLesson); setSelectedLesson(null); }}><Play size={16} /> Train this position</button>}
-        </div>
-      </Modal>}
+      {selectedLesson && (
+        <Modal title={selectedLesson.title} onClose={() => setSelectedLesson(null)}>
+          <div className="lesson-modal">
+            <div className="lesson-modal-meta">
+              <span className="rank-pill">{selectedLesson.category}</span>
+              {selectedLesson.rank && <span className="rank-pill mono">{selectedLesson.rank}</span>}
+              <span className="mono">{selectedLesson.subtitle}</span>
+            </div>
+
+            {selectedLesson.fen ? (
+              <div className="lesson-preview-container">
+                <div className="lesson-preview-board-wrap">
+                  <ChessBoard
+                    game={new Chess(selectedLesson.fen)}
+                    orientation="w"
+                    selected={null}
+                    targets={new Set()}
+                    lastMove={null}
+                    onSquare={() => {}}
+                  />
+                </div>
+                <div className="lesson-preview-info">
+                  <p>{selectedLesson.copy}</p>
+                  <div className="lesson-why">
+                    <span className="surface-label">WHY IT MATTERS</span>
+                    <p>{selectedLesson.explanation}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p>{selectedLesson.copy}</p>
+                <div className="lesson-why">
+                  <span className="surface-label">WHY IT MATTERS</span>
+                  <p>{selectedLesson.explanation}</p>
+                </div>
+              </>
+            )}
+
+            {selectedLesson.fen && selectedLesson.move && (
+              <button
+                className="brass-button"
+                onClick={() => {
+                  onPractice(selectedLesson);
+                  setSelectedLesson(null);
+                }}
+              >
+                <Play size={16} /> Train this position
+              </button>
+            )}
+          </div>
+        </Modal>
+      )}
     </>
   );
 }
@@ -1175,11 +1282,13 @@ function PlayView({
   authUser,
   cloudSyncedFor,
   gameMistakes,
+  settings,
   onMistakesFound
 }: {
   authUser: AuthUser | null;
   cloudSyncedFor: string | null;
   gameMistakes: TutorGameMistake[];
+  settings: TutorSettings;
   onMistakesFound: (mistakes: TutorGameMistake[]) => void;
 }) {
   const [localGames, setLocalGames] = useState<TutorGameRecord[]>(() => loadGameHistory());
@@ -1207,14 +1316,16 @@ function PlayView({
       active = false;
     };
   }, [authUser, cloudSyncedFor]);
+
   const [game, setGame] = useState(() => new Chess());
+  const [playerColor, setPlayerColor] = useState<"w" | "b">("w");
   const [orientation, setOrientation] = useState<Orientation>("w");
   const [selected, setSelected] = useState<Square | null>(null);
   const [started, setStarted] = useState(false);
   const [botName, setBotName] = useState("Wayne");
   const [botElo, setBotElo] = useState(600);
   const [chooserOpen, setChooserOpen] = useState(false);
-  const [status, setStatus] = useState("Choose an opponent and start a game.");
+  const [status, setStatus] = useState("Choose your color and start a game.");
   const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
   const [recordedGame, setRecordedGame] = useState(false);
   const [analysisStatus, setAnalysisStatus] = useState<"idle" | "analyzing" | "complete" | "failed">("idle");
@@ -1222,6 +1333,10 @@ function PlayView({
   const [analysisMistakes, setAnalysisMistakes] = useState<TutorGameMistake[]>([]);
   const [selectedGameForAnalysis, setSelectedGameForAnalysis] = useState<TutorGameRecord | null>(null);
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null);
+  const [confirmResign, setConfirmResign] = useState(false);
+  const [copiedPgn, setCopiedPgn] = useState(false);
+
+  const botColor = playerColor === "w" ? "b" : "w";
 
   const onMistakesFoundRef = useRef(onMistakesFound);
   useEffect(() => {
@@ -1238,17 +1353,30 @@ function PlayView({
     [game, selected]
   );
 
+  const movePairs = useMemo(() => {
+    const history = game.history();
+    const pairs: { moveNum: number; white: string; black?: string }[] = [];
+    for (let i = 0; i < history.length; i += 2) {
+      pairs.push({
+        moveNum: Math.floor(i / 2) + 1,
+        white: history[i],
+        black: history[i + 1]
+      });
+    }
+    return pairs;
+  }, [game]);
+
   useEffect(() => {
-    if (!started || game.turn() !== "b" || game.isGameOver()) return;
+    if (!started || game.turn() !== botColor || game.isGameOver()) return;
 
     let active = true;
     const fen = game.fen();
-    const delay = botElo >= 1400 ? 450 : botElo >= 1000 ? 300 : 200;
+    const delay = botElo >= 1500 ? 500 : botElo >= 1000 ? 350 : 220;
 
     const timer = window.setTimeout(async () => {
       const bestMove = await findBestMove(fen, {
-        depth: botElo >= 1400 ? 10 : botElo >= 1000 ? 9 : 7,
-        skillLevel: botElo >= 1400 ? 12 : botElo >= 1000 ? 7 : 3
+        depth: botElo >= 1500 ? 11 : botElo >= 1000 ? 9 : 6,
+        skillLevel: botElo >= 1500 ? 14 : botElo >= 1000 ? 7 : 3
       });
 
       if (!active) return;
@@ -1261,6 +1389,8 @@ function PlayView({
       const selectedMove = engineMove ?? [...legal].sort((a, b) => fallbackBotScore(b) - fallbackBotScore(a))[0];
       if (!selectedMove) return;
 
+      const isCapture = !!next.get(selectedMove.to) || (selectedMove.piece === "p" && selectedMove.from[0] !== selectedMove.to[0]);
+
       const played = next.move({
         from: selectedMove.from,
         to: selectedMove.to,
@@ -1268,17 +1398,31 @@ function PlayView({
       });
       if (!played) return;
 
+      if (settings.soundCues) {
+        if (isCapture) playCue("capture");
+        else if (next.isCheck()) playCue("check");
+        else playCue("move");
+      }
+
       setGame(next);
       setLastMove({ from: played.from, to: played.to });
       setSelected(null);
-      setStatus(next.isCheckmate() ? "Checkmate. Game finished." : next.isCheck() ? `${botName} found check. Your turn.` : "Your turn.");
+      setStatus(
+        next.isCheckmate()
+          ? "Checkmate. Game finished."
+          : next.isDraw()
+          ? "Game drawn."
+          : next.isCheck()
+          ? `${botName} delivered check. Your turn.`
+          : "Your turn."
+      );
     }, delay);
 
     return () => {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [started, game, botElo, botName]);
+  }, [started, game, botElo, botName, botColor, settings.soundCues]);
 
   useEffect(() => {
     if (!started || !game.isGameOver()) return;
@@ -1293,7 +1437,7 @@ function PlayView({
     setAnalysisMistakes([]);
 
     const result = game.isCheckmate()
-      ? (game.turn() === "b" ? "win" : "loss")
+      ? (game.turn() === botColor ? "win" : "loss")
       : "draw";
     const gameId = generateUuid();
 
@@ -1316,7 +1460,7 @@ function PlayView({
         gameId,
         opponentName: botName,
         opponentElo: botElo,
-        playerColor: "white",
+        playerColor: playerColor === "w" ? "white" : "black",
         result,
         pgn
       });
@@ -1330,7 +1474,7 @@ function PlayView({
     analyseGame(pgn, {
       gameId,
       opponent: botName,
-      playerColor: "w",
+      playerColor,
       maxPlayerMoves: 60,
       depth: 8,
       onProgress: next => {
@@ -1346,21 +1490,83 @@ function PlayView({
       setAnalysisStatus("failed");
       setAnalysisProgress(current => ({ ...current, label: "Analysis could not finish. The game is still saved." }));
     });
-  }, [started, game, authUser, cloudSyncedFor, botName, botElo]);
+  }, [started, game, authUser, cloudSyncedFor, botName, botElo, botColor, playerColor]);
 
-  function startGame() {
+  function startWithColor(color: "w" | "b") {
     activeAnalysisCancelRef.current?.();
     analyzedGameKeyRef.current = null;
-    setGame(new Chess());
+    const newBoard = new Chess();
+    setGame(newBoard);
+    setPlayerColor(color);
+    setOrientation(color);
     setSelected(null);
     setLastMove(null);
     setPendingPromotion(null);
     setRecordedGame(false);
+    setConfirmResign(false);
     setAnalysisStatus("idle");
     setAnalysisProgress({ current: 0, total: 0, label: "" });
     setAnalysisMistakes([]);
     setStarted(true);
-    setStatus("Your turn. Build a position before hunting tactics.");
+    setStatus(color === "w" ? "Your turn. Play the opening." : `${botName} is playing White.`);
+  }
+
+  function undoMove() {
+    if (!started || game.isGameOver()) return;
+    const next = new Chess(game.fen());
+    const histLen = next.history().length;
+    if (histLen >= 2) {
+      next.undo();
+      next.undo();
+    } else if (histLen === 1) {
+      next.undo();
+    }
+    setGame(next);
+    setSelected(null);
+    const hist = next.history({ verbose: true });
+    const last = hist.length ? hist[hist.length - 1] : null;
+    setLastMove(last ? { from: last.from, to: last.to } : null);
+    setStatus(next.turn() === playerColor ? "Move taken back. Your turn." : `${botName} is thinking.`);
+  }
+
+  function handleResign() {
+    if (!started || game.isGameOver()) return;
+    setConfirmResign(false);
+    const pgn = game.pgn() || `1. e4 { Resigned }`;
+    const gameId = generateUuid();
+    const localRecord: TutorGameRecord = {
+      id: gameId,
+      pgn,
+      opponent: botName,
+      rating: botElo,
+      result: "L",
+      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      opening: "Resigned",
+      moves: Math.ceil(game.history().length / 2)
+    };
+    saveGameRecord(localRecord);
+    setLocalGames(current => [localRecord, ...current.filter(g => g.id !== gameId)].slice(0, 20));
+    setStatus("You resigned. Game saved for review.");
+    setRecordedGame(true);
+
+    if (game.history().length > 4) {
+      setAnalysisStatus("analyzing");
+      setAnalysisProgress({ current: 0, total: 0, label: "Analyzing resigned game…" });
+      analyseGame(pgn, {
+        gameId,
+        opponent: botName,
+        playerColor,
+        maxPlayerMoves: 60,
+        depth: 8,
+        onProgress: next => setAnalysisProgress(next)
+      }).then(analysis => {
+        setAnalysisMistakes(analysis.mistakes);
+        setAnalysisStatus("complete");
+        onMistakesFoundRef.current(analysis.mistakes);
+      }).catch(() => {
+        setAnalysisStatus("failed");
+      });
+    }
   }
 
   function handlePromotion(pieceType: "q" | "r" | "b" | "n") {
@@ -1369,14 +1575,29 @@ function PlayView({
     const move = next.move({ from: pendingPromotion.from, to: pendingPromotion.to, promotion: pieceType });
     setPendingPromotion(null);
     if (!move) return;
+
+    if (settings.soundCues) {
+      if (move.captured) playCue("capture");
+      else if (next.isCheck()) playCue("check");
+      else playCue("move");
+    }
+
     setGame(next);
     setSelected(null);
     setLastMove({ from: move.from, to: move.to });
-    setStatus(next.isCheckmate() ? "Checkmate. Game finished." : next.isCheck() ? `Check. ${botName} is responding.` : `${botName} is thinking.`);
+    setStatus(
+      next.isCheckmate()
+        ? "Checkmate. Game finished."
+        : next.isDraw()
+        ? "Game drawn."
+        : next.isCheck()
+        ? `Check! ${botName} is responding.`
+        : `${botName} is thinking.`
+    );
   }
 
   function clickSquare(square: Square) {
-    if (!started || game.turn() !== "w" || game.isGameOver()) return;
+    if (!started || game.turn() !== playerColor || game.isGameOver()) return;
 
     if (selected && legalTargets.has(square)) {
       const movingPiece = game.get(selected);
@@ -1385,13 +1606,29 @@ function PlayView({
         setPendingPromotion({ from: selected, to: square });
         return;
       }
+      const isCapture = !!game.get(square) || (movingPiece?.type === "p" && selected[0] !== square[0]);
       const next = new Chess(game.fen());
       const move = next.move({ from: selected, to: square, promotion: "q" });
       if (!move) return;
+
+      if (settings.soundCues) {
+        if (isCapture) playCue("capture");
+        else if (next.isCheck()) playCue("check");
+        else playCue("move");
+      }
+
       setGame(next);
       setSelected(null);
       setLastMove({ from: move.from, to: move.to });
-      setStatus(next.isCheckmate() ? "Checkmate. Game finished." : next.isCheck() ? `Check. ${botName} is responding.` : `${botName} is thinking.`);
+      setStatus(
+        next.isCheckmate()
+          ? "Checkmate. You win!"
+          : next.isDraw()
+          ? "Game drawn."
+          : next.isCheck()
+          ? `Check. ${botName} is responding.`
+          : `${botName} is thinking.`
+      );
       return;
     }
 
@@ -1399,81 +1636,286 @@ function PlayView({
     setSelected(piece?.color === game.turn() ? square : null);
   }
 
+  function copyPgnToClipboard() {
+    const pgn = game.pgn();
+    if (!pgn) return;
+    navigator.clipboard.writeText(pgn).then(() => {
+      setCopiedPgn(true);
+      setTimeout(() => setCopiedPgn(false), 2200);
+    });
+  }
+
+  const botList = [
+    { name: "Wayne", elo: 600, badge: "Casual", avatar: "W", desc: "Plays simple moves and makes occasional tactical errors." },
+    { name: "Maya", elo: 900, badge: "Developing", avatar: "M", desc: "Solid developing moves; looks for basic forks and pins." },
+    { name: "Elena", elo: 1200, badge: "Classical", avatar: "E", desc: "Disciplined opening repertoire and active piece placement." },
+    { name: "Viktor", elo: 1500, badge: "Tactician", avatar: "V", desc: "Aggressive attacking player with sharp tactical calculation." },
+    { name: "Stockfish GM", elo: 2000, badge: "Master", avatar: "S", desc: "Deep positional mastery and near-flawless calculation." }
+  ];
+
   return (
     <>
       <section className="hero-row">
-        <div><span className="eyebrow">PLAY</span><h1>Play with a purpose</h1><p>This is a local training game: you play White, and Stockfish replies in your browser while the board follows real chess rules.</p></div>
-        <button className="brass-button" onClick={startGame}><Play size={16} /> {started ? "New game" : "Start game"}</button>
+        <div>
+          <span className="eyebrow">PLAY</span>
+          <h1>Play with a purpose</h1>
+          <p>Test your skills against Stockfish browser bots at different Elo ratings. Every game is saved locally and analyzed for reviewable mistakes.</p>
+        </div>
+        <button className="brass-button" onClick={() => startWithColor(playerColor)}>
+          <Play size={16} /> {started ? "New game" : "Start game"}
+        </button>
       </section>
 
       <div className="play-workspace">
         {started ? (
           <div className="game-card">
             <div className="game-card-head">
-              <div><span className="surface-label">LIVE GAME</span><h2>You vs {botName}</h2><p>{botElo} Elo · Stockfish browser engine</p></div>
-              <div className="board-tools"><button className="board-tool" onClick={() => setOrientation(v => v === "w" ? "b" : "w")}><ArrowLeftRight size={17} /></button><button className="board-tool" onClick={startGame}><RotateCcw size={16} /></button></div>
-            </div>
-            <div className="board-wrap centered-board"><ChessBoard game={game} orientation={orientation} selected={selected} targets={legalTargets} lastMove={lastMove} onSquare={clickSquare} /></div>
-            <div className="game-status"><span className={game.turn() === "w" ? "status-dot active" : "status-dot"} /><b>{status}</b><span className="mono">{game.history().length} ply</span></div>
-            {game.isGameOver() && <div className="game-analysis-card">
-              <div className="game-card-head">
-                <div><span className="surface-label">COACH REVIEW</span><h3>{analysisStatus === "analyzing" ? "Reviewing your game" : analysisStatus === "failed" ? "Analysis unavailable" : analysisMistakes.length ? `${analysisMistakes.length} review-ready mistake${analysisMistakes.length === 1 ? "" : "s"}` : "No review-worthy mistakes"}</h3></div>
-                {analysisStatus === "analyzing" && <span className="analysis-spinner">ANALYZING</span>}
+              <div>
+                <span className="surface-label">LIVE MATCH</span>
+                <h2>You ({playerColor === "w" ? "White" : "Black"}) vs {botName}</h2>
+                <p>{botElo} Elo · Stockfish Browser Engine</p>
               </div>
-              {analysisStatus === "analyzing" && <><div className="analysis-track"><span style={{ width: analysisProgress.total ? String(Math.round((analysisProgress.current / analysisProgress.total) * 100)) + "%" : "8%" }} /></div><p>{analysisProgress.label}</p></>}
-              {analysisStatus === "complete" && !analysisMistakes.length && <p>Your key moves held up at the current analysis depth. Keep using Review to reinforce your existing work.</p>}
-              {analysisStatus === "complete" && analysisMistakes.length > 0 && <div className="analysis-mistakes">
-                {analysisMistakes.slice(0, 4).map(mistake => <div className="analysis-mistake" key={mistake.key}><span>{mistake.severity}</span><div><b>Move {mistake.moveNumber}: {mistake.san}</b><small>{mistake.category} · best {mistake.expected.slice(0, 2)} → {mistake.expected.slice(2)}</small></div></div>)}
-                <p className="analysis-note">These positions were added to Review automatically.</p>
-              </div>}
-              {analysisStatus === "failed" && <p>{analysisProgress.label}</p>}
-            </div>}
+              <div className="board-tools">
+                <button className="board-tool" onClick={() => setOrientation(v => v === "w" ? "b" : "w")} title="Flip board" aria-label="Flip board">
+                  <ArrowLeftRight size={17} />
+                </button>
+                <button className="board-tool" onClick={() => startWithColor(playerColor)} title="Restart game" aria-label="Restart game">
+                  <RotateCcw size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div className="board-wrap centered-board">
+              <ChessBoard
+                game={game}
+                orientation={orientation}
+                selected={selected}
+                targets={legalTargets}
+                lastMove={lastMove}
+                onSquare={clickSquare}
+              />
+            </div>
+
+            <div className="game-status">
+              <span className={game.turn() === playerColor ? "status-dot active" : "status-dot"} />
+              <b>{status}</b>
+              <span className="mono">{game.history().length} ply · {Math.ceil(game.history().length / 2)} moves</span>
+            </div>
+
+            <div className="in-game-actions">
+              <div className="in-game-actions-group">
+                <button
+                  className="in-game-action-btn"
+                  onClick={undoMove}
+                  disabled={game.history().length === 0 || game.isGameOver()}
+                  title="Take back last move"
+                >
+                  <Undo2 size={14} /> Takeback
+                </button>
+                {!confirmResign ? (
+                  <button
+                    className="in-game-action-btn danger"
+                    onClick={() => setConfirmResign(true)}
+                    disabled={game.isGameOver()}
+                    title="Resign current game"
+                  >
+                    <Flag size={14} /> Resign
+                  </button>
+                ) : (
+                  <div className="resign-confirm-bar">
+                    <span>Resign?</span>
+                    <button className="in-game-action-btn danger" onClick={handleResign}>Confirm</button>
+                    <button className="in-game-action-btn" onClick={() => setConfirmResign(false)}>Cancel</button>
+                  </div>
+                )}
+              </div>
+
+              <div className="in-game-actions-group">
+                <button
+                  className="in-game-action-btn"
+                  onClick={copyPgnToClipboard}
+                  disabled={game.history().length === 0}
+                  title="Copy PGN notation"
+                >
+                  <Sparkles size={13} /> {copiedPgn ? "Copied!" : "Copy PGN"}
+                </button>
+              </div>
+            </div>
+
+            {movePairs.length > 0 && (
+              <div className="move-history-strip">
+                {movePairs.map(pair => (
+                  <span className="move-history-step" key={pair.moveNum}>
+                    <span className="move-num">{pair.moveNum}.</span>
+                    <span className="move-san">{pair.white}</span>
+                    {pair.black && <span className="move-san">{pair.black}</span>}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {game.isGameOver() && (
+              <div className="game-analysis-card">
+                <div className="game-card-head">
+                  <div>
+                    <span className="surface-label">COACH REVIEW</span>
+                    <h3>
+                      {analysisStatus === "analyzing"
+                        ? "Reviewing your game moves…"
+                        : analysisStatus === "failed"
+                        ? "Analysis unavailable"
+                        : analysisMistakes.length
+                        ? `${analysisMistakes.length} review-ready mistake${analysisMistakes.length === 1 ? "" : "s"}`
+                        : "No critical blunders detected!"}
+                    </h3>
+                  </div>
+                  {analysisStatus === "analyzing" && <span className="analysis-spinner">ANALYZING</span>}
+                </div>
+                {analysisStatus === "analyzing" && (
+                  <>
+                    <div className="analysis-track">
+                      <span style={{ width: analysisProgress.total ? `${Math.round((analysisProgress.current / analysisProgress.total) * 100)}%` : "12%" }} />
+                    </div>
+                    <p>{analysisProgress.label}</p>
+                  </>
+                )}
+                {analysisStatus === "complete" && !analysisMistakes.length && (
+                  <p>Your moves held up at Stockfish depth. Excellent positional discipline.</p>
+                )}
+                {analysisStatus === "complete" && analysisMistakes.length > 0 && (
+                  <div className="analysis-mistakes">
+                    {analysisMistakes.slice(0, 4).map(mistake => (
+                      <div className="analysis-mistake" key={mistake.key}>
+                        <span>{mistake.severity}</span>
+                        <div>
+                          <b>Move {mistake.moveNumber}: {mistake.san}</b>
+                          <small>{mistake.category} · best {mistake.expected.slice(0, 2)} → {mistake.expected.slice(2)}</small>
+                        </div>
+                      </div>
+                    ))}
+                    <p className="analysis-note">These blunders were added to your Review queue automatically.</p>
+                  </div>
+                )}
+                {analysisStatus === "failed" && <p>{analysisProgress.label}</p>}
+              </div>
+            )}
           </div>
         ) : (
           <article className="arena-card large-arena">
-            <div className="arena-bot"><div className="bot-avatar">{botName[0]}</div><div><span className="surface-label">CURRENT OPPONENT</span><h2>{botName} <small>{botElo} Elo</small></h2><p>Local training bot · no network service required</p></div></div>
-            <div className="arena-copy"><h3>Start with a real position</h3><p>The board, legal moves, captures, checks and bot replies are all handled in the browser.</p></div>
-            <div className="arena-buttons"><button className="brass-button" onClick={startGame}>Play white</button><button className="secondary-button" onClick={() => setChooserOpen(true)}>Choose opponent</button></div>
+            <div className="arena-bot">
+              <div className="bot-avatar">{botName[0]}</div>
+              <div>
+                <span className="surface-label">CHOSEN OPPONENT</span>
+                <h2>{botName} <small>{botElo} Elo</small></h2>
+                <p>Browser Stockfish engine · No network latency</p>
+              </div>
+            </div>
+
+            <div className="arena-copy">
+              <h3>Choose your side & start play</h3>
+              <p>Play with real chess rules: legal highlights, check & checkmate detection, pawn promotion, takeback, and automated blunder analysis.</p>
+
+              <div className="side-picker-group">
+                <button
+                  className={playerColor === "w" ? "side-picker-btn active" : "side-picker-btn"}
+                  onClick={() => setPlayerColor("w")}
+                >
+                  <span className="side-mark white" /> Play as White (You move first)
+                </button>
+                <button
+                  className={playerColor === "b" ? "side-picker-btn active" : "side-picker-btn"}
+                  onClick={() => setPlayerColor("b")}
+                >
+                  <span className="side-mark black" /> Play as Black ({botName} moves first)
+                </button>
+              </div>
+            </div>
+
+            <div className="arena-buttons">
+              <button className="brass-button" onClick={() => startWithColor(playerColor)}>
+                Start as {playerColor === "w" ? "White" : "Black"}
+              </button>
+              <button className="secondary-button" onClick={() => setChooserOpen(true)}>
+                Change opponent
+              </button>
+            </div>
           </article>
         )}
 
         <article className="recent-card">
-          <div className="card-head"><div><span className="surface-label">RECENT GAMES</span><h3>Past games</h3></div><History size={16} /></div>
+          <div className="card-head">
+            <div>
+              <span className="surface-label">MATCH HISTORY</span>
+              <h3>Past games</h3>
+            </div>
+            <History size={16} />
+          </div>
           {localGames.length ? localGames.map(gameRow => (
             <div className="game-row" key={(gameRow.id ?? "") + gameRow.opponent + gameRow.date}>
               <button className="game-row-button game-row-main" onClick={() => setSelectedGameForAnalysis(gameRow)}>
-                <span className="result-badge">{gameRow.result}</span>
-                <div className="game-opponent"><b>{gameRow.opponent}</b><span>{gameRow.rating} · {gameRow.opening}</span></div>
+                <span className={gameRow.result === "W" ? "result-badge" : gameRow.result === "L" ? "result-badge loss" : "result-badge draw"}>
+                  {gameRow.result}
+                </span>
+                <div className="game-opponent">
+                  <b>{gameRow.opponent}</b>
+                  <span>{gameRow.rating} Elo · {gameRow.opening}</span>
+                </div>
                 <span className="mono">{gameRow.moves} moves</span>
                 <span className="date-label">{gameRow.date}</span>
               </button>
-              {gameRow.pgn && <button className="game-analysis-button" onClick={() => setSelectedGameForAnalysis(gameRow)}>Analyse</button>}
+              {gameRow.pgn && (
+                <button className="game-analysis-button" onClick={() => setSelectedGameForAnalysis(gameRow)}>
+                  Analyse
+                </button>
+              )}
             </div>
-          )) : <div className="empty-history"><span className="surface-label">NO GAMES YET</span><p>Finish a local game and it will appear here.</p></div>}
+          )) : (
+            <div className="empty-history">
+              <span className="surface-label">NO GAMES YET</span>
+              <p>Finish a game against any bot and it will automatically appear here with full replay analysis.</p>
+            </div>
+          )}
         </article>
       </div>
 
-      {selectedGameForAnalysis && <GameAnalysisModal
-        game={selectedGameForAnalysis}
-        mistakes={gameMistakes.filter(mistake => selectedGameForAnalysis.id ? mistake.gameId === selectedGameForAnalysis.id : mistake.opponent === selectedGameForAnalysis.opponent)}
-        onClose={() => setSelectedGameForAnalysis(null)}
-      />}
+      {selectedGameForAnalysis && (
+        <GameAnalysisModal
+          game={selectedGameForAnalysis}
+          mistakes={gameMistakes.filter(mistake => selectedGameForAnalysis.id ? mistake.gameId === selectedGameForAnalysis.id : mistake.opponent === selectedGameForAnalysis.opponent)}
+          onClose={() => setSelectedGameForAnalysis(null)}
+        />
+      )}
 
-      {chooserOpen && <Modal title="Choose opponent" onClose={() => setChooserOpen(false)}>
-        <div className="opponent-grid">
-          {[["Wayne","600","Casual"],["Coach Bot","1000","Developing"],["Training Bot","1400","Calculation"]].map(([name, elo, desc]) => (
-            <button key={name} className={botName === name ? "opponent-option active" : "opponent-option"} onClick={() => { setBotName(name); setBotElo(Number(elo)); setChooserOpen(false); setStarted(false); setStatus("Choose an opponent and start a game."); }}>
-              <span className="bot-avatar">{name[0]}</span>
-              <span><b>{name}</b><small>{elo} Elo · {desc}</small></span>
-              <ChevronRight size={15} />
-            </button>
-          ))}
-        </div>
-      </Modal>}
+      {chooserOpen && (
+        <Modal title="Choose your opponent" onClose={() => setChooserOpen(false)}>
+          <div className="opponent-grid">
+            {botList.map(bot => (
+              <button
+                key={bot.name}
+                className={botName === bot.name ? "opponent-option active" : "opponent-option"}
+                onClick={() => {
+                  setBotName(bot.name);
+                  setBotElo(bot.elo);
+                  setChooserOpen(false);
+                  setStarted(false);
+                  setStatus("Choose your color and start a game.");
+                }}
+              >
+                <span className="bot-avatar">{bot.avatar}</span>
+                <span>
+                  <b>{bot.name}</b>
+                  <small>{bot.elo} Elo · {bot.badge} · {bot.desc}</small>
+                </span>
+                <ChevronRight size={15} />
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
 
       {pendingPromotion && (
         <PromotionModal
-          color="w"
+          color={playerColor}
           onSelect={handlePromotion}
           onCancel={() => setPendingPromotion(null)}
         />
@@ -1604,32 +2046,67 @@ function ReviewView({
   onComplete: (puzzle: Puzzle, correct: boolean) => void;
 }) {
   const [sessionPositions, setSessionPositions] = useState<{ list: Puzzle[]; initialIndex: number } | null>(null);
+  const [reviewFilter, setReviewFilter] = useState<"all" | "due" | "mistakes">("all");
   const now = Date.now();
+
   const duePositions = positions.filter(item => {
     const scheduled = schedule.find(entry => entry.puzzleKey === item.title);
     return !scheduled || new Date(scheduled.dueAt).getTime() <= now;
   });
 
+  const mistakePositions = positions.filter(item => item.title.startsWith("Game review"));
+
+  const filteredPositions = useMemo(() => {
+    if (reviewFilter === "due") return duePositions;
+    if (reviewFilter === "mistakes") return mistakePositions;
+    return positions;
+  }, [positions, duePositions, mistakePositions, reviewFilter]);
+
   return (
     <>
       <section className="hero-row">
-        <div><span className="eyebrow">REVIEW</span><h1>Turn yesterday's mistakes into today's skill</h1><p>Recall the reason, make the move, then schedule the position forward.</p></div>
+        <div>
+          <span className="eyebrow">REVIEW QUEUE</span>
+          <h1>Turn yesterday's mistakes into today's skill</h1>
+          <p>Recall the reason, make the move, then schedule the position forward using spaced repetition.</p>
+        </div>
         <div className="metric-chip"><Target size={14} /> {due} due</div>
       </section>
+
+      <div className="filter-row" style={{ marginBottom: "16px" }}>
+        <button
+          className={reviewFilter === "all" ? "filter-chip active" : "filter-chip"}
+          onClick={() => setReviewFilter("all")}
+        >
+          All Cards ({positions.length})
+        </button>
+        <button
+          className={reviewFilter === "due" ? "filter-chip active" : "filter-chip"}
+          onClick={() => setReviewFilter("due")}
+        >
+          Due Today ({duePositions.length})
+        </button>
+        <button
+          className={reviewFilter === "mistakes" ? "filter-chip active" : "filter-chip"}
+          onClick={() => setReviewFilter("mistakes")}
+        >
+          Game Blunders ({mistakePositions.length})
+        </button>
+      </div>
 
       <section className="review-layout">
         <div className="review-sidebar">
           <div className="review-summary">
-            <span className="surface-label">TODAY</span>
-            <strong>{due} positions</strong>
-            <p>1 day · 3 days · 7 days · 14 days · 30 days</p>
+            <span className="surface-label">SPACED REPETITION</span>
+            <strong>{due} due today</strong>
+            <p>Intervals: 1d · 3d · 7d · 14d · 30d</p>
             <div className="review-progress"><span style={{ width: String(Math.max(0, 100 - due * 12)) + "%" }} /></div>
             <button
               className="brass-button"
-              onClick={() => setSessionPositions({ list: duePositions.length ? duePositions : positions, initialIndex: 0 })}
-              disabled={due === 0}
+              onClick={() => setSessionPositions({ list: duePositions.length ? duePositions : filteredPositions, initialIndex: 0 })}
+              disabled={filteredPositions.length === 0}
             >
-              <Play size={16} /> {due === 0 ? "Queue complete" : "Start review"}
+              <Play size={16} /> {due === 0 ? "Review All Positions" : "Start Due Review"}
             </button>
           </div>
 
@@ -1644,25 +2121,37 @@ function ReviewView({
               ).sort(([, a], [, b]) => b - a).slice(0, 4).map(([category, count]) => (
                 <div className="pattern-row" key={category}><span>{category}</span><b>{count}</b></div>
               ))}
-              {!attemptHistory.some(attempt => !attempt.correct) && <p className="pattern-empty">No mistakes recorded yet. Your misses will appear here as useful coaching signals.</p>}
+              {!attemptHistory.some(attempt => !attempt.correct) && <p className="pattern-empty">No misses recorded yet. Mistake patterns from drills and games appear here.</p>}
             </div>
           </div>
         </div>
 
         <div className="review-list">
-          {positions.map((item, i) => {
+          {filteredPositions.map((item, i) => {
             const scheduled = schedule.find(entry => entry.puzzleKey === item.title);
             const isDue = !scheduled || new Date(scheduled.dueAt).getTime() <= now;
             const daysAway = scheduled ? Math.max(1, Math.ceil((new Date(scheduled.dueAt).getTime() - now) / 86400000)) : 0;
             return (
-              <button className="review-item review-item-button" key={item.title} onClick={() => setSessionPositions({ list: positions, initialIndex: i })}>
+              <button className="review-item review-item-button" key={item.title} onClick={() => setSessionPositions({ list: filteredPositions, initialIndex: i })}>
                 <span className="review-index">{i + 1}</span>
-                <div><b>{item.title}</b><p>{item.goal}</p></div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "2px" }}>
+                    <b>{item.title}</b>
+                    <span className="rank-pill mono" style={{ fontSize: "10px", padding: "1px 5px" }}>{item.category}</span>
+                  </div>
+                  <p>{item.goal}</p>
+                </div>
                 <span className="review-stage">{isDue ? "Due today" : `In ${daysAway}d`}</span>
                 <ChevronRight size={15} />
               </button>
             );
           })}
+          {filteredPositions.length === 0 && (
+            <div className="empty-history" style={{ padding: "32px", textAlign: "center" }}>
+              <span className="surface-label">NO POSITIONS IN FILTER</span>
+              <p>Try switching to "All Cards" or finish more games to populate reviewable blunders.</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -1691,6 +2180,7 @@ function ReviewSession({
 }) {
   const [index, setIndex] = useState(initialIndex);
   const [game, setGame] = useState(() => new Chess(positions[initialIndex].fen));
+  const [orientation, setOrientation] = useState<Orientation>("w");
   const [selected, setSelected] = useState<Square | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [result, setResult] = useState<"idle" | "correct" | "wrong">("idle");
@@ -1725,9 +2215,11 @@ function ReviewSession({
       const isCorrect = isExpected || isMatingMove;
 
       if (isCorrect) {
+        playCue("success");
         setResult("correct");
         onComplete(puzzle, true);
       } else {
+        playCue("error");
         setResult("wrong");
         onComplete(puzzle, false);
       }
@@ -1754,19 +2246,42 @@ function ReviewSession({
     <div className="session-overlay">
       <div className="session-panel">
         <div className="session-head">
-          <div><span className="eyebrow">REVIEW {index + 1} / {positions.length}</span><h2>{puzzle.title}</h2><p>{puzzle.goal}</p></div>
-          <button className="icon-button" onClick={onClose}><X size={17} /></button>
+          <div>
+            <span className="eyebrow">REVIEW {index + 1} / {positions.length}</span>
+            <h2>{puzzle.title}</h2>
+            <p>{puzzle.goal}</p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <button className="icon-button" onClick={() => setOrientation(v => v === "w" ? "b" : "w")} title="Flip board">
+              <ArrowLeftRight size={16} />
+            </button>
+            <button className="icon-button" onClick={onClose} title="Close review">
+              <X size={17} />
+            </button>
+          </div>
         </div>
         <div className="session-grid">
-          <div className="board-wrap"><ChessBoard game={game} orientation="w" selected={selected} targets={targets} lastMove={null} onSquare={choose} /></div>
+          <div className="board-wrap">
+            <ChessBoard game={game} orientation={orientation} selected={selected} targets={targets} lastMove={null} onSquare={choose} />
+          </div>
           <div className="session-coach">
             <div className={result === "correct" ? "coach-card solved" : result === "wrong" ? "coach-card warning" : "coach-card"}>
-              <span className="surface-label">{result === "correct" ? "CORRECT" : result === "wrong" ? "NOT YET" : "RECALL"}</span>
-              <h3>{result === "correct" ? "The reason is secured." : result === "wrong" ? "Reset and look again." : "Can you find the move?"}</h3>
-              <p>{result === "correct" ? puzzle.success : result === "wrong" ? "The move is legal, but it does not answer the training objective. It has been scheduled for tomorrow." : "Use the board first. The reveal is there to support recall, not replace it."}</p>
+              <span className="surface-label">{result === "correct" ? "CORRECT" : result === "wrong" ? "NOT YET" : "ACTIVE RECALL"}</span>
+              <h3>{result === "correct" ? "The key move is reinforced!" : result === "wrong" ? "Reset and look again." : "Can you find the winning move?"}</h3>
+              <p>{result === "correct" ? puzzle.success : result === "wrong" ? "The move missed the objective. This position has been rescheduled for tomorrow." : "Use the board first. The reveal hint is there to support recall, not replace it."}</p>
             </div>
-            {!revealed && result === "idle" && <button className="secondary-button full" onClick={() => setRevealed(true)}><Lightbulb size={16} /> Reveal hint</button>}
-            {revealed && result === "idle" && <div className="revealed-answer"><span className="surface-label">HINT</span><b>{puzzle.hint}</b><small>Target move: {puzzle.expected.slice(0, 2)} → {puzzle.expected.slice(2)}</small></div>}
+            {!revealed && result === "idle" && (
+              <button className="secondary-button full" onClick={() => setRevealed(true)}>
+                <Lightbulb size={16} /> Reveal hint
+              </button>
+            )}
+            {revealed && result === "idle" && (
+              <div className="revealed-answer">
+                <span className="surface-label">HINT</span>
+                <b>{puzzle.hint}</b>
+                <small>Target move: {puzzle.expected.slice(0, 2)} → {puzzle.expected.slice(2)}</small>
+              </div>
+            )}
             {result === "wrong" && (
               <div className="coach-actions" style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "8px" }}>
                 <button className="secondary-button full" onClick={resetSession}><RotateCcw size={16} /> Retry position</button>

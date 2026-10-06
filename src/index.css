@@ -1932,3 +1932,249 @@ button:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
   color: var(--text-3);
 }
 
+/* ==========================================================================
+   Drill Navigation & Filter Bar (Train View)
+   ========================================================================== */
+.drill-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.drill-filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.drill-chip {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-2);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.drill-chip:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+.drill-chip.active {
+  background: var(--brass-soft);
+  border-color: var(--brass);
+  color: var(--brass);
+  font-weight: 600;
+}
+.drill-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.drill-counter {
+  font: 600 12px "IBM Plex Mono", monospace;
+  color: var(--text-3);
+  padding: 4px 8px;
+  background: var(--surface-2);
+  border-radius: 5px;
+  border: 1px solid var(--line);
+}
+.drill-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.drill-nav-btn:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--text);
+  background: var(--surface-3);
+}
+.drill-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   In-Game Live Board Action Bar (Play View)
+   ========================================================================== */
+.in-game-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  flex-wrap: wrap;
+}
+.in-game-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.in-game-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.in-game-action-btn:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--text);
+  background: var(--surface-3);
+}
+.in-game-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.in-game-action-btn.danger:hover:not(:disabled) {
+  border-color: var(--coral);
+  color: var(--coral);
+  background: var(--coral-soft);
+}
+.resign-confirm-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--coral);
+}
+
+/* Color Chooser in Play */
+.side-picker-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+.side-picker-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.side-picker-btn:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+.side-picker-btn.active {
+  background: var(--brass-soft);
+  border-color: var(--brass);
+  color: var(--brass);
+  font-weight: 600;
+}
+.side-mark {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+}
+.side-mark.white { background: #FFFFFF; border-color: #999; }
+.side-mark.black { background: #1B2228; border-color: #555; }
+
+/* Move History Strip Scroll */
+.move-history-strip::-webkit-scrollbar {
+  height: 4px;
+}
+.move-history-strip::-webkit-scrollbar-thumb {
+  background: var(--surface-3);
+  border-radius: 2px;
+}
+
+/* ==========================================================================
+   Lesson Preview Board in Modal (Learn View)
+   ========================================================================== */
+.lesson-preview-container {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  margin: 14px 0;
+  flex-wrap: wrap;
+}
+.lesson-preview-board-wrap {
+  width: 220px;
+  flex: 0 0 220px;
+}
+.lesson-preview-info {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* Lesson Progress Banner in Learn View */
+.learn-progress-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.learn-progress-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.learn-progress-pct {
+  font: 700 20px "IBM Plex Mono", monospace;
+  color: var(--brass);
+}
+.learn-progress-bar-wrap {
+  flex: 1;
+  min-width: 140px;
+  max-width: 280px;
+}
+.learn-progress-bar {
+  height: 7px;
+  border-radius: 99px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.learn-progress-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--brass), var(--sage));
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+
