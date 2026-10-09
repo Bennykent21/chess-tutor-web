@@ -145,3 +145,20 @@ test("Lichess Opening Database provides accurate ECO, win percentages, and candi
   assert.ok(explorerResult.stats.moves.length > 0);
 });
 
+test("Account Reviewer processes user profile and game stats with win rates and opening breakdown", async () => {
+  const { fetchLichessAccountReview } = await import("../src/lib/accountStats.ts");
+
+  // Analyze public Magnus Carlsen profile
+  const review = await fetchLichessAccountReview("MagnusCarlsen");
+  assert.equal(review.platform, "lichess");
+  assert.ok(review.username.toLowerCase().includes("magnuscarlsen"));
+  assert.ok(review.summary.totalGames > 0, "Must have analyzed games");
+  assert.ok(review.summary.winPct >= 0 && review.summary.winPct <= 100);
+  assert.ok(review.colorStats.white.winPct >= 0);
+  assert.ok(review.colorStats.black.winPct >= 0);
+  assert.ok(Array.isArray(review.openings), "Must have openings breakdown");
+  assert.ok(Array.isArray(review.games), "Must have games archive");
+  assert.ok(Array.isArray(review.improvementInsights), "Must have diagnostic insights");
+});
+
+

@@ -185,7 +185,8 @@ export async function fetchLichessAccountReview(username: string): Promise<Accou
       losses: 0,
       draws: 0,
       playedAsWhite: 0,
-      playedAsBlack: 0
+      playedAsBlack: 0,
+      fen: undefined as string | undefined
     };
 
     if (result === "W") existingOpening.wins++;
@@ -460,7 +461,8 @@ export async function fetchChessComAccountReview(username: string): Promise<Acco
       losses: 0,
       draws: 0,
       playedAsWhite: 0,
-      playedAsBlack: 0
+      playedAsBlack: 0,
+      fen: undefined as string | undefined
     };
 
     if (result === "W") existingOpening.wins++;

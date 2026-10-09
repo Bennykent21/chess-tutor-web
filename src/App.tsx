@@ -1347,25 +1347,20 @@ function LearnView({
               <article className="lesson-card" key={course.name}>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                   <span className="rank-pill">Opening Course</span>
-                  <span className="rank-pill mono">{course.targetRating}</span>
+                  <span className="rank-pill mono">{course.rank}</span>
                 </div>
                 <h3>{course.name}</h3>
-                <div className="mono lesson-subtitle">{course.description}</div>
+                <div className="mono lesson-subtitle">{course.subtitle}</div>
                 <div style={{ margin: "10px 0" }}>
-                  <span className="text-xs text-zinc-400 font-medium">Core Variation:</span>
-                  <p className="mono text-xs text-amber-400 mt-1">{course.line.join(" ")}</p>
+                  <span className="text-xs text-zinc-400 font-medium">Mastery:</span>
+                  <span className="mono text-xs text-amber-400 ml-1.5">{course.mastery} ({course.progress}%)</span>
                 </div>
                 <div className="lesson-actions">
                   <button
                     className="text-action secondary-action"
                     onClick={() => {
-                      // Generate starting FEN from moves
-                      const c = new Chess();
-                      for (const m of course.line) {
-                        try { c.move(m); } catch (_e) { break; }
-                      }
                       onPracticeOpening(
-                        c.fen(),
+                        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
                         course.name,
                         `Master the key responses and middlegame plans for ${course.name}.`
                       );
@@ -1376,10 +1371,6 @@ function LearnView({
                   <button
                     className="text-action"
                     onClick={() => {
-                      const c = new Chess();
-                      for (const m of course.line) {
-                        try { c.move(m); } catch (_e) { break; }
-                      }
                       setSubTab("explorer");
                     }}
                   >
@@ -1753,23 +1744,66 @@ function PlayView({
     });
   }, [started, game, authUser, cloudSyncedFor, botName, botElo, botColor, playerColor]);
 
-  function startWithColor(color: "w" | "b") {
+  useEffect(() => {
+    if (!started || game.isGameOver()) return;
+    let active = true;
+    analysePosition(game.fen(), { depth: 9, skillLevel: 10 }).then(res => {
+      if (!active || !res) return;
+      if (res.scoreCp !== null) {
+        const score = res.scoreCp / 100;
+        setLiveEngineScore(score > 0 ? `+${score.toFixed(1)}` : `${score.toFixed(1)}`);
+      } else if (res.mateIn !== null) {
+        setLiveEngineScore(`M${res.mateIn}`);
+      }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [started, game]);
+
+  async function handleGetHint() {
+    if (!started || game.isGameOver() || game.turn() !== playerColor) return;
+    setIsHintLoading(true);
+    setEngineHint(null);
+    try {
+      const res = await analysePosition(game.fen(), { depth: 10, skillLevel: 20 });
+      if (res?.bestMove) {
+        const legal = game.moves({ verbose: true });
+        const moveObj = legal.find(m => (m.from + m.to) === res.bestMove || (m.from + m.to + (m.promotion ?? "")) === res.bestMove);
+        setEngineHint(moveObj ? `Stockfish top move: ${moveObj.san} (${moveObj.from} → ${moveObj.to})` : `Best move: ${res.bestMove}`);
+      }
+    } catch (_e) {
+      setEngineHint("Could not calculate hint right now.");
+    } finally {
+      setIsHintLoading(false);
+    }
+  }
+
+  function startWithColor(color: "w" | "b", opening = activeOpening) {
     activeAnalysisCancelRef.current?.();
     analyzedGameKeyRef.current = null;
     const newBoard = new Chess();
+    for (const m of opening.moves) {
+      try { newBoard.move(m); } catch (_e) { break; }
+    }
     setGame(newBoard);
     setPlayerColor(color);
     setOrientation(color);
     setSelected(null);
-    setLastMove(null);
+    const hist = newBoard.history({ verbose: true });
+    const last = hist.length ? hist[hist.length - 1] : null;
+    setLastMove(last ? { from: last.from, to: last.to } : null);
     setPendingPromotion(null);
     setRecordedGame(false);
     setConfirmResign(false);
     setAnalysisStatus("idle");
     setAnalysisProgress({ current: 0, total: 0, label: "" });
     setAnalysisMistakes([]);
+    setEngineHint(null);
     setStarted(true);
-    setStatus(color === "w" ? "Your turn. Play the opening." : `${botName} is playing White.`);
+    setStatus(
+      newBoard.turn() === color
+        ? `Your turn. Playing the ${opening.name}.`
+        : `${botName} is responding in the ${opening.name}.`
+    );
   }
 
   function undoMove() {
@@ -1946,6 +1980,28 @@ function PlayView({
               </div>
             </div>
 
+            {activeOpening && (
+              <div className="opening-understanding-card" style={{ marginBottom: "14px" }}>
+                <div className="opening-understanding-top">
+                  <span className="eco-badge">{activeOpening.eco}</span>
+                  <b className="text-sm text-zinc-100">{activeOpening.name}</b>
+                  <div className="opening-eval-meter ml-auto">
+                    <Gauge size={13} className="text-amber-400" />
+                    <span>Eval: <strong>{liveEngineScore}</strong></span>
+                  </div>
+                </div>
+                <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
+                  <strong>Key Idea:</strong> {activeOpening.ideas}
+                </p>
+                {engineHint && (
+                  <div className="mt-2 text-xs text-amber-300 font-medium flex items-center gap-1.5">
+                    <Sparkles size={13} className="text-amber-400 shrink-0" />
+                    <span>{engineHint}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="board-wrap centered-board">
               <ChessBoard
                 game={game}
@@ -1972,6 +2028,14 @@ function PlayView({
                   title="Take back last move"
                 >
                   <Undo2 size={14} /> Takeback
+                </button>
+                <button
+                  className="in-game-action-btn"
+                  onClick={handleGetHint}
+                  disabled={isHintLoading || game.isGameOver() || game.turn() !== playerColor}
+                  title="Ask Stockfish for the best theoretical move"
+                >
+                  <Lightbulb size={13} /> {isHintLoading ? "Calculating…" : "Engine Hint"}
                 </button>
                 {!confirmResign ? (
                   <button
@@ -2082,8 +2146,37 @@ function PlayView({
             </div>
 
             <div className="arena-copy">
+              <div className="play-opening-picker-bar">
+                <div className="play-opening-picker-head">
+                  <div>
+                    <span className="surface-label">OPENING PRACTICE</span>
+                    <h3 className="text-sm font-semibold text-zinc-100">Select Opening to Play & Learn</h3>
+                  </div>
+                  <span className="text-xs text-zinc-400 font-mono">
+                    {activeOpening.eco}
+                  </span>
+                </div>
+                <div className="opening-selection-pills">
+                  {PLAYABLE_OPENINGS.map(op => (
+                    <button
+                      key={op.id}
+                      type="button"
+                      className={`opening-pill-btn ${selectedOpeningId === op.id ? "active" : ""}`}
+                      onClick={() => setSelectedOpeningId(op.id)}
+                    >
+                      {op.name}
+                    </button>
+                  ))}
+                </div>
+                <div className="opening-understanding-card mt-3">
+                  <p className="text-xs text-zinc-300">
+                    <strong>Strategic Goal:</strong> {activeOpening.ideas}
+                  </p>
+                </div>
+              </div>
+
               <h3>Choose your side & start play</h3>
-              <p>Play with real chess rules: legal highlights, check & checkmate detection, pawn promotion, takeback, and automated blunder analysis.</p>
+              <p>Play freely with real chess rules: legal highlights, check & checkmate detection, pawn promotion, takeback, engine hints, and automated blunder analysis.</p>
 
               <div className="side-picker-group">
                 <button
@@ -2102,8 +2195,8 @@ function PlayView({
             </div>
 
             <div className="arena-buttons">
-              <button className="brass-button" onClick={() => startWithColor(playerColor)}>
-                Start as {playerColor === "w" ? "White" : "Black"}
+              <button className="brass-button" onClick={() => startWithColor(playerColor, activeOpening)}>
+                Start {activeOpening.id !== "standard" ? `(${activeOpening.name})` : ""} as {playerColor === "w" ? "White" : "Black"}
               </button>
               <button className="secondary-button" onClick={() => setChooserOpen(true)}>
                 Change opponent
@@ -2307,14 +2400,20 @@ function ReviewView({
   due,
   schedule,
   attemptHistory,
-  onComplete
+  onComplete,
+  onTrainOpening,
+  onStudyInLearn
 }: {
   positions: Puzzle[];
   due: number;
   schedule: TutorReviewItem[];
   attemptHistory: TutorAttemptRecord[];
   onComplete: (puzzle: Puzzle, correct: boolean) => void;
+  onTrainOpening?: (fen: string, title: string, goal?: string) => void;
+  onStudyInLearn?: (fen: string, title: string) => void;
 }) {
+  const [reviewMode, setReviewMode] = useState<"account" | "spaced">("account");
+  const [selectedAccountGame, setSelectedAccountGame] = useState<AccountGameSummary | null>(null);
   const [sessionPositions, setSessionPositions] = useState<{ list: Puzzle[]; initialIndex: number } | null>(null);
   const [reviewFilter, setReviewFilter] = useState<"all" | "due" | "mistakes">("all");
   const now = Date.now();
@@ -2336,38 +2435,87 @@ function ReviewView({
     <>
       <section className="hero-row">
         <div>
-          <span className="eyebrow">REVIEW QUEUE</span>
-          <h1>Turn yesterday's mistakes into today's skill</h1>
-          <p>Recall the reason, make the move, then schedule the position forward using spaced repetition.</p>
+          <span className="eyebrow">ACCOUNT & PERFORMANCE REVIEW</span>
+          <h1>Analyze your account & master your weaknesses</h1>
+          <p>
+            Connect any Lichess or Chess.com account to review win/loss percentages, evaluate opening success rates, and identify areas to improve.
+          </p>
         </div>
-        <div className="metric-chip"><Target size={14} /> {due} due</div>
+
+        <div className="filter-chips-row">
+          <button
+            type="button"
+            className={reviewMode === "account" ? "filter-chip active" : "filter-chip"}
+            onClick={() => setReviewMode("account")}
+          >
+            <History size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: "4px" }} />
+            Account Review (Lichess & Chess.com)
+          </button>
+          <button
+            type="button"
+            className={reviewMode === "spaced" ? "filter-chip active" : "filter-chip"}
+            onClick={() => setReviewMode("spaced")}
+          >
+            <Target size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: "4px" }} />
+            Spaced Repetition ({due} due)
+          </button>
+        </div>
       </section>
 
-      <div className="filter-row" style={{ marginBottom: "16px" }}>
-        <button
-          className={reviewFilter === "all" ? "filter-chip active" : "filter-chip"}
-          onClick={() => setReviewFilter("all")}
-        >
-          All Cards ({positions.length})
-        </button>
-        <button
-          className={reviewFilter === "due" ? "filter-chip active" : "filter-chip"}
-          onClick={() => setReviewFilter("due")}
-        >
-          Due Today ({duePositions.length})
-        </button>
-        <button
-          className={reviewFilter === "mistakes" ? "filter-chip active" : "filter-chip"}
-          onClick={() => setReviewFilter("mistakes")}
-        >
-          Game Blunders ({mistakePositions.length})
-        </button>
-      </div>
+      {reviewMode === "account" && (
+        <div style={{ marginTop: "16px" }}>
+          <AccountReviewer
+            onTrainOpening={onTrainOpening}
+            onStudyInLearn={onStudyInLearn}
+            onAnalyzeGame={game => setSelectedAccountGame(game)}
+          />
 
-      <section className="review-layout">
-        <div className="review-sidebar">
-          <div className="review-summary">
-            <span className="surface-label">SPACED REPETITION</span>
+          {selectedAccountGame && (
+            <GameAnalysisModal
+              game={{
+                id: selectedAccountGame.id,
+                pgn: selectedAccountGame.pgn,
+                opponent: selectedAccountGame.opponent,
+                rating: selectedAccountGame.opponentRating,
+                result: selectedAccountGame.result,
+                date: selectedAccountGame.date,
+                opening: selectedAccountGame.opening,
+                moves: selectedAccountGame.movesCount
+              }}
+              mistakes={[]}
+              onClose={() => setSelectedAccountGame(null)}
+            />
+          )}
+        </div>
+      )}
+
+      {reviewMode === "spaced" && (
+        <div style={{ marginTop: "16px" }}>
+          <div className="filter-row" style={{ marginBottom: "16px" }}>
+            <button
+              className={reviewFilter === "all" ? "filter-chip active" : "filter-chip"}
+              onClick={() => setReviewFilter("all")}
+            >
+              All Cards ({positions.length})
+            </button>
+            <button
+              className={reviewFilter === "due" ? "filter-chip active" : "filter-chip"}
+              onClick={() => setReviewFilter("due")}
+            >
+              Due Today ({duePositions.length})
+            </button>
+            <button
+              className={reviewFilter === "mistakes" ? "filter-chip active" : "filter-chip"}
+              onClick={() => setReviewFilter("mistakes")}
+            >
+              Game Blunders ({mistakePositions.length})
+            </button>
+          </div>
+
+          <section className="review-layout">
+            <div className="review-sidebar">
+              <div className="review-summary">
+                <span className="surface-label">SPACED REPETITION</span>
             <strong>{due} due today</strong>
             <p>Intervals: 1d · 3d · 7d · 14d · 30d</p>
             <div className="review-progress"><span style={{ width: String(Math.max(0, 100 - due * 12)) + "%" }} /></div>
@@ -2424,6 +2572,8 @@ function ReviewView({
           )}
         </div>
       </section>
+    </div>
+  )}
 
       {sessionPositions !== null && (
         <ReviewSession
