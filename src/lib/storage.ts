@@ -1,3 +1,105 @@
+import type { BotProfile, ChatLevel } from "../domain/bots";
+import type { LessonProgressRecord } from "../domain/lessons";
+import type {
+  AppearanceMode,
+  AppThemeId,
+  BoardColorsId,
+  BoardOrientationPref,
+  MascotId,
+  PieceSetId
+} from "../domain/theme";
+
+export type GameSource = "arena" | "chess.com" | "lichess" | "pgn";
+export type ThemePreference = AppearanceMode;
+export type PieceSetStyle = PieceSetId | "staunton" | "neo" | "woodcut";
+export type BoardThemeStyle = BoardColorsId | "midnight" | "green";
+export type ReviewDepthId = "fast" | "normal" | "deep";
+export type StartingLevelId = "new" | "rules" | "player";
+
+export interface AppSettings {
+  appTheme: AppThemeId;
+  appearance: AppearanceMode;
+  boardThemeId: BoardColorsId;
+  pieceSetId: PieceSetId;
+  mascotId: MascotId;
+  boardOrientation: BoardOrientationPref;
+  showCoordinates: boolean;
+  showLegalDots: boolean;
+  reduceMotion: boolean;
+  autoQueen: boolean;
+  soundEnabled: boolean;
+  hapticsEnabled: boolean;
+  chatLevel: ChatLevel;
+  reviewDepth: ReviewDepthId;
+  playerName: string;
+  playerPicture: string; // "", "face:<id>", "coach:<id>"
+}
+
+export const defaultAppSettings: AppSettings = {
+  appTheme: "slate",
+  appearance: "dark",
+  boardThemeId: "slate",
+  pieceSetId: "cburnett",
+  mascotId: "pip",
+  boardOrientation: "follow-side",
+  showCoordinates: true,
+  showLegalDots: true,
+  reduceMotion: false,
+  autoQueen: false,
+  soundEnabled: true,
+  hapticsEnabled: true,
+  chatLevel: "some",
+  reviewDepth: "normal",
+  playerName: "",
+  playerPicture: ""
+};
+
+export interface PuzzleHistoryEntry {
+  puzzleId: string;
+  solved: boolean;
+  clean: boolean;
+  revealed: boolean;
+  elapsedMs: number;
+  ratingBefore: number;
+  ratingAfter: number;
+  xpEarned: number;
+  finishedAt: number;
+  themes: string[];
+}
+
+export interface LevelProgressRecord {
+  level: number;
+  passed: boolean;
+  bestScore: number;
+  plays: number;
+}
+
+export interface PuzzleStoreState {
+  puzzleRating: number;
+  totalXp: number;
+  cleanStreak: number;
+  activeDays: string[]; // YYYY-MM-DD
+  levels: Record<number, LevelProgressRecord>;
+  history: PuzzleHistoryEntry[];
+  rushBestTimed3: number;
+  rushBestTimed5: number;
+  rushBestSurvival: number;
+  failedPuzzleIds: string[];
+}
+
+export const defaultPuzzleStore: PuzzleStoreState = {
+  puzzleRating: 1000,
+  totalXp: 0,
+  cleanStreak: 0,
+  activeDays: [],
+  levels: {},
+  history: [],
+  rushBestTimed3: 0,
+  rushBestTimed5: 0,
+  rushBestSurvival: 0,
+  failedPuzzleIds: []
+};
+
 export type TutorProgress = {
   weeklyAccuracy: number;
   reviewDue: number;
@@ -6,177 +108,69 @@ export type TutorProgress = {
   solvedPositions: number;
   recordedMistakes: number;
   lastActiveDate: string | null;
+  puzzleRating?: number;
+  lastLessonId?: string | null;
+  lessonProgress?: Record<string, { stepIndex: number; completed: boolean; bestAccuracy?: number }>;
 };
 
-const STORAGE_KEY = "chess-tutor.progress.v1";
-
-export const defaultProgress: TutorProgress = {
-  weeklyAccuracy: 0,
-  reviewDue: 0,
-  streak: 0,
-  completedLessons: [],
-  solvedPositions: 0,
-  recordedMistakes: 0,
-  lastActiveDate: null
+export type OnboardingProfile = {
+  completed: boolean;
+  goal: "tactics" | "openings" | "endgames" | "complete";
+  level: "new" | "casual" | "club";
+  estimatedRating: number;
+  completedAt?: string;
 };
 
-export function generateUuid(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
-export function localDateKey(d = new Date()) {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-export function mergeProgress(local: TutorProgress, cloud: TutorProgress): TutorProgress {
-  const unionLessons = Array.from(new Set([...(local.completedLessons || []), ...(cloud.completedLessons || [])]));
-  const solved = Math.max(local.solvedPositions, cloud.solvedPositions);
-  const mistakes = Math.max(local.recordedMistakes, cloud.recordedMistakes);
-  const total = solved + mistakes;
-  const accuracy = total > 0 ? Math.round((solved / total) * 100) : Math.max(local.weeklyAccuracy, cloud.weeklyAccuracy);
-  const streak = Math.max(local.streak, cloud.streak);
-  const latestDate = !local.lastActiveDate
-    ? cloud.lastActiveDate
-    : !cloud.lastActiveDate
-    ? local.lastActiveDate
-    : local.lastActiveDate > cloud.lastActiveDate
-    ? local.lastActiveDate
-    : cloud.lastActiveDate;
-
-  return {
-    solvedPositions: solved,
-    recordedMistakes: mistakes,
-    weeklyAccuracy: accuracy,
-    streak,
-    completedLessons: unionLessons,
-    lastActiveDate: latestDate,
-    reviewDue: Math.max(local.reviewDue, cloud.reviewDue)
+export type LinkedAccountInfo = {
+  platform: "lichess" | "chess.com";
+  username: string;
+  title?: string;
+  avatar?: string;
+  ratings: {
+    rapid?: number;
+    blitz?: number;
+    bullet?: number;
+    classical?: number;
+    puzzle?: number;
   };
-}
-
-export function clearLocalData() {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(STORAGE_KEY);
-    window.localStorage.removeItem(GAMES_KEY);
-    window.localStorage.removeItem(REVIEW_KEY);
-    window.localStorage.removeItem(SETTINGS_KEY);
-    window.localStorage.removeItem(ATTEMPTS_KEY);
-    window.localStorage.removeItem(GAME_MISTAKES_KEY);
-  } catch {
-    // Ignore storage clear errors
-  }
-}
-
-export function loadProgress(): TutorProgress {
-  if (typeof window === "undefined") return defaultProgress;
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultProgress;
-
-    const parsed = JSON.parse(raw) as Partial<TutorProgress>;
-    const legacySeed = parsed.lastActiveDate === null &&
-      parsed.weeklyAccuracy === 82 &&
-      parsed.reviewDue === 4 &&
-      parsed.streak === 7;
-
-    return {
-      weeklyAccuracy: legacySeed ? 0 : (typeof parsed.weeklyAccuracy === "number" ? parsed.weeklyAccuracy : defaultProgress.weeklyAccuracy),
-      reviewDue: legacySeed ? 0 : (typeof parsed.reviewDue === "number" ? parsed.reviewDue : defaultProgress.reviewDue),
-      streak: legacySeed ? 0 : (typeof parsed.streak === "number" ? parsed.streak : defaultProgress.streak),
-      completedLessons: Array.isArray(parsed.completedLessons) ? parsed.completedLessons.filter((x): x is string => typeof x === "string") : [],
-      solvedPositions: typeof parsed.solvedPositions === "number" ? parsed.solvedPositions : 0,
-      recordedMistakes: typeof parsed.recordedMistakes === "number" ? parsed.recordedMistakes : 0,
-      lastActiveDate: typeof parsed.lastActiveDate === "string" ? parsed.lastActiveDate : null
-    };
-  } catch {
-    return defaultProgress;
-  }
-}
-
-export function saveProgress(progress: TutorProgress) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-  } catch {
-    // Local persistence is an enhancement; the product should still work if storage is unavailable.
-  }
-}
-
-export function touchActivity(progress: TutorProgress): TutorProgress {
-  const today = localDateKey();
-  if (progress.lastActiveDate === today) return progress;
-
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayKey = localDateKey(yesterday);
-
-  return {
-    ...progress,
-    streak: progress.lastActiveDate === yesterdayKey ? progress.streak + 1 : 1,
-    lastActiveDate: today
-  };
-}
-
+  lastSyncedAt: number;
+  depthSynced: number;
+  totalSynced: number;
+  incompleteCount: number;
+};
 
 export type TutorGameRecord = {
   id?: string;
+  source?: GameSource;
+  externalId?: string;
   opponent: string;
+  botId?: string;
   rating: number;
+  userRating?: number;
+  playerColor?: "w" | "b";
   result: "W" | "L" | "D";
+  termination?: string;
+  timeClass?: string;
   date: string;
+  playedAt?: number;
   opening: string;
+  eco?: string;
   moves: number;
   pgn?: string;
+  incomplete?: boolean;
+  url?: string;
+  accuracy?: number;
 };
 
-const GAMES_KEY = "chess-tutor.games.v1";
-
-export function loadGameHistory(): TutorGameRecord[] {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = window.localStorage.getItem(GAMES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(item =>
-      item &&
-      typeof item.opponent === "string" &&
-      typeof item.rating === "number" &&
-      ["W", "L", "D"].includes(item.result) &&
-      typeof item.date === "string" &&
-      typeof item.opening === "string" &&
-      typeof item.moves === "number" &&
-      (item.id === undefined || typeof item.id === "string") &&
-      (item.pgn === undefined || typeof item.pgn === "string")
-    ).slice(0, 20) as TutorGameRecord[];
-  } catch {
-    return [];
-  }
-}
-
-export function saveGameRecord(record: TutorGameRecord) {
-  if (typeof window === "undefined") return;
-  try {
-    const current = loadGameHistory();
-    window.localStorage.setItem(GAMES_KEY, JSON.stringify([record, ...current].slice(0, 20)));
-  } catch {
-    // Local history is an enhancement; the game remains playable if storage is unavailable.
-  }
-}
-
+export type StoredAccountGame = TutorGameRecord & {
+  platform: "lichess" | "chess.com";
+  accountUsername: string;
+  rated: boolean;
+  userColor: "w" | "b";
+  openingEco: string;
+  openingPlayedSide: "white" | "black";
+  timeControl?: string;
+};
 
 export type TutorReviewItem = {
   puzzleKey: string;
@@ -186,99 +180,6 @@ export type TutorReviewItem = {
   lastResult: "correct" | "wrong" | null;
 };
 
-const REVIEW_KEY = "chess-tutor.review.v1";
-const REVIEW_INTERVALS = [1, 3, 7, 14, 30] as const;
-
-export function loadReviewSchedule(puzzleKeys: string[]): TutorReviewItem[] {
-  if (typeof window === "undefined") {
-    return puzzleKeys.map(puzzleKey => ({
-      puzzleKey,
-      dueAt: new Date().toISOString(),
-      intervalDays: 1,
-      repetitions: 0,
-      lastResult: null
-    }));
-  }
-
-  try {
-    const raw = window.localStorage.getItem(REVIEW_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    const existing = Array.isArray(parsed) ? parsed : [];
-    const byKey = new Map<string, TutorReviewItem>(
-      existing
-        .filter(item =>
-          item &&
-          typeof item.puzzleKey === "string" &&
-          typeof item.dueAt === "string" &&
-          typeof item.intervalDays === "number" &&
-          typeof item.repetitions === "number" &&
-          (item.lastResult === null || item.lastResult === "correct" || item.lastResult === "wrong")
-        )
-        .map(item => [item.puzzleKey, item as TutorReviewItem])
-    );
-
-    const requested = new Set(puzzleKeys);
-    const schedule = [
-      ...puzzleKeys.map(puzzleKey => byKey.get(puzzleKey) ?? ({
-        puzzleKey,
-        dueAt: new Date().toISOString(),
-        intervalDays: 1,
-        repetitions: 0,
-        lastResult: null
-      })),
-      ...existing
-        .filter(item => item && typeof item.puzzleKey === "string" && !requested.has(item.puzzleKey))
-        .map(item => item as TutorReviewItem)
-    ];
-
-    saveReviewSchedule(schedule);
-    return schedule;
-  } catch {
-    return puzzleKeys.map(puzzleKey => ({
-      puzzleKey,
-      dueAt: new Date().toISOString(),
-      intervalDays: 1,
-      repetitions: 0,
-      lastResult: null
-    }));
-  }
-}
-
-export function saveReviewSchedule(schedule: TutorReviewItem[]) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(REVIEW_KEY, JSON.stringify(schedule));
-  } catch {
-    // Review persistence is an enhancement; the queue still works in memory.
-  }
-}
-
-export function applyReviewResult(schedule: TutorReviewItem[], puzzleKey: string, correct: boolean): TutorReviewItem[] {
-  const now = new Date();
-  return schedule.map(item => {
-    if (item.puzzleKey !== puzzleKey) return item;
-
-    const nextRepetitions = correct ? item.repetitions + 1 : 0;
-    const intervalIndex = Math.min(nextRepetitions, REVIEW_INTERVALS.length) - 1;
-    const intervalDays = correct && intervalIndex >= 0 ? REVIEW_INTERVALS[intervalIndex] : 1;
-    const dueAt = new Date(now);
-    dueAt.setDate(dueAt.getDate() + intervalDays);
-
-    return {
-      ...item,
-      dueAt: dueAt.toISOString(),
-      intervalDays,
-      repetitions: nextRepetitions,
-      lastResult: correct ? "correct" : "wrong"
-    };
-  });
-}
-
-export function countDueReviews(schedule: TutorReviewItem[], now = new Date()) {
-  return schedule.filter(item => new Date(item.dueAt).getTime() <= now.getTime()).length;
-}
-
-
 export type TutorAttemptRecord = {
   puzzleKey: string;
   category: string;
@@ -286,84 +187,6 @@ export type TutorAttemptRecord = {
   hintsUsed: number;
   createdAt: string;
 };
-
-export type TutorSettings = {
-  coachDetail: "detailed" | "concise";
-  showLegalMoves: boolean;
-  soundCues: boolean;
-};
-
-const SETTINGS_KEY = "chess-tutor.settings.v1";
-
-export const defaultSettings: TutorSettings = {
-  coachDetail: "detailed",
-  showLegalMoves: true,
-  soundCues: true
-};
-
-export function loadSettings(): TutorSettings {
-  if (typeof window === "undefined") return defaultSettings;
-
-  try {
-    const raw = window.localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return defaultSettings;
-    const parsed = JSON.parse(raw) as Partial<TutorSettings>;
-    return {
-      coachDetail: parsed.coachDetail === "concise" ? "concise" : "detailed",
-      showLegalMoves: typeof parsed.showLegalMoves === "boolean" ? parsed.showLegalMoves : true,
-      soundCues: typeof parsed.soundCues === "boolean" ? parsed.soundCues : true
-    };
-  } catch {
-    return defaultSettings;
-  }
-}
-
-export function saveSettings(settings: TutorSettings) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  } catch {
-    // Settings are an enhancement; the product remains functional if storage is unavailable.
-  }
-}
-
-
-const ATTEMPTS_KEY = "chess-tutor.attempts.v1";
-
-export function loadAttemptHistory(): TutorAttemptRecord[] {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = window.localStorage.getItem(ATTEMPTS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(item =>
-      item &&
-      typeof item.puzzleKey === "string" &&
-      typeof item.category === "string" &&
-      typeof item.correct === "boolean" &&
-      (typeof item.hintsUsed === "number" || item.hintsUsed === undefined) &&
-      typeof item.createdAt === "string"
-    )
-    .slice(0, 100)
-    .map(item => ({ ...item, hintsUsed: typeof item.hintsUsed === "number" ? item.hintsUsed : 0 })) as TutorAttemptRecord[];
-  } catch {
-    return [];
-  }
-}
-
-export function saveAttempt(record: TutorAttemptRecord) {
-  if (typeof window === "undefined") return;
-
-  try {
-    const current = loadAttemptHistory();
-    window.localStorage.setItem(ATTEMPTS_KEY, JSON.stringify([record, ...current].slice(0, 100)));
-  } catch {
-    // Attempt history is an enhancement; training remains functional if storage is unavailable.
-  }
-}
-
 
 export type TutorGameMistake = {
   key: string;
@@ -385,53 +208,445 @@ export type TutorGameMistake = {
   createdAt: string;
 };
 
-const GAME_MISTAKES_KEY = "chess-tutor.game-mistakes.v1";
+export interface ReportedIssue {
+  id: string;
+  puzzleId: string;
+  fen: string;
+  note: string;
+  createdAt: number;
+}
 
-export function loadGameMistakes(): TutorGameMistake[] {
-  if (typeof window === "undefined") return [];
+export interface ActiveGameSnapshot {
+  botId: string;
+  botName: string;
+  botRating: number;
+  botFace: string;
+  playerColor: "w" | "b";
+  fen: string;
+  startFen: string;
+  pgn: string;
+  uciMoves: string[];
+  whiteMs: number | null;
+  blackMs: number | null;
+  incrementMs: number;
+  openingTitle?: string;
+  updatedAt: number;
+}
 
+const KEYS = {
+  PROGRESS: "chess-tutor.progress.v1",
+  ONBOARDING: "chess-tutor.onboarding.v1",
+  LINKED_ACCOUNTS: "chess-tutor.linked-accounts.v1",
+  IMPORTED_GAMES: "chess-tutor.imported-games.v1",
+  GAMES: "chess-tutor.games.v1",
+  REVIEW: "chess-tutor.review.v1",
+  ATTEMPTS: "chess-tutor.attempts.v1",
+  GAME_MISTAKES: "chess-tutor.game-mistakes.v1",
+  APP_SETTINGS: "chess-tutor.app-settings.v2",
+  CUSTOM_BOTS: "chess-tutor.custom-bots.v1",
+  LESSON_PROGRESS: "chess-tutor.lesson-progress.v2",
+  PUZZLE_STORE: "chess-tutor.puzzle-store.v2",
+  GAME_ANALYSES: "chess-tutor.game-analyses.v1",
+  REPORTED_ISSUES: "chess-tutor.reported-issues.v1",
+  ACTIVE_GAME: "chess-tutor.active-game.v1"
+} as const;
+
+export const defaultProgress: TutorProgress = {
+  weeklyAccuracy: 0,
+  reviewDue: 0,
+  streak: 0,
+  completedLessons: [],
+  solvedPositions: 0,
+  recordedMistakes: 0,
+  lastActiveDate: null,
+  puzzleRating: 1000,
+  lastLessonId: null,
+  lessonProgress: {}
+};
+
+export const defaultOnboarding: OnboardingProfile = {
+  completed: false,
+  goal: "complete",
+  level: "casual",
+  estimatedRating: 1000
+};
+
+export function generateUuid(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+export function localDateKey(d = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function computeDayStreak(activeDays: string[], today = new Date()): number {
+  const set = new Set(activeDays);
+  const d = new Date(today);
+  let key = localDateKey(d);
+  if (!set.has(key)) {
+    d.setDate(d.getDate() - 1);
+    key = localDateKey(d);
+  }
+  let count = 0;
+  while (set.has(key)) {
+    count++;
+    d.setDate(d.getDate() - 1);
+    key = localDateKey(d);
+  }
+  return count;
+}
+
+function readJson<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
   try {
-    const raw = window.localStorage.getItem(GAME_MISTAKES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(item =>
-      item &&
-      typeof item.key === "string" &&
-      typeof item.gameId === "string" &&
-      typeof item.opponent === "string" &&
-      typeof item.moveNumber === "number" &&
-      typeof item.san === "string" &&
-      typeof item.fen === "string" &&
-      typeof item.category === "string" &&
-      ["Inaccuracy", "Mistake", "Blunder"].includes(item.severity) &&
-      typeof item.expected === "string" &&
-      typeof item.goal === "string" &&
-      typeof item.hint === "string" &&
-      typeof item.success === "string" &&
-      (typeof item.evaluationBefore === "number" || item.evaluationBefore === null) &&
-      (typeof item.evaluationAfter === "number" || item.evaluationAfter === null) &&
-      typeof item.lossCp === "number" &&
-      Array.isArray(item.bestLine) &&
-      typeof item.createdAt === "string"
-    ).slice(0, 100) as TutorGameMistake[];
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
   } catch {
-    return [];
+    return fallback;
   }
 }
 
-export function saveGameMistakes(records: TutorGameMistake[]) {
+function writeJson<T>(key: string, value: T): void {
   if (typeof window === "undefined") return;
-
   try {
-    const current = loadGameMistakes();
-    const byKey = new Map(current.map(item => [item.key, item]));
-    for (const record of records) byKey.set(record.key, record);
-    window.localStorage.setItem(
-      GAME_MISTAKES_KEY,
-      JSON.stringify([...byKey.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 100))
-    );
+    window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    // Analysis history is an enhancement; review training remains functional if storage is unavailable.
+    // ignore storage quota errors gracefully
+  }
+}
+
+export function loadAppSettings(): AppSettings {
+  const saved = readJson<Partial<AppSettings>>(KEYS.APP_SETTINGS, {});
+  return { ...defaultAppSettings, ...saved };
+}
+
+export function saveAppSettings(settings: AppSettings): void {
+  writeJson(KEYS.APP_SETTINGS, settings);
+}
+
+export function loadCustomBots(): BotProfile[] {
+  const list = readJson<BotProfile[]>(KEYS.CUSTOM_BOTS, []);
+  return Array.isArray(list) ? list : [];
+}
+
+export function saveCustomBots(bots: BotProfile[]): void {
+  writeJson(KEYS.CUSTOM_BOTS, bots);
+}
+
+export function loadLessonProgressMap(): Record<string, LessonProgressRecord> {
+  const map = readJson<Record<string, LessonProgressRecord>>(KEYS.LESSON_PROGRESS, {});
+  return map && typeof map === "object" ? map : {};
+}
+
+export function saveLessonProgressMap(map: Record<string, LessonProgressRecord>): void {
+  writeJson(KEYS.LESSON_PROGRESS, map);
+}
+
+export function loadPuzzleStore(): PuzzleStoreState {
+  const saved = readJson<Partial<PuzzleStoreState>>(KEYS.PUZZLE_STORE, {});
+  return {
+    ...defaultPuzzleStore,
+    ...saved,
+    activeDays: Array.isArray(saved.activeDays) ? saved.activeDays : [],
+    levels: saved.levels && typeof saved.levels === "object" ? saved.levels : {},
+    history: Array.isArray(saved.history) ? saved.history : [],
+    failedPuzzleIds: Array.isArray(saved.failedPuzzleIds) ? saved.failedPuzzleIds : []
+  };
+}
+
+export function savePuzzleStore(store: PuzzleStoreState): void {
+  writeJson(KEYS.PUZZLE_STORE, {
+    ...store,
+    history: store.history.slice(-500),
+    failedPuzzleIds: store.failedPuzzleIds.slice(0, 150)
+  });
+}
+
+export function loadCachedAnalyses(): Record<string, any> {
+  const map = readJson<Record<string, any>>(KEYS.GAME_ANALYSES, {});
+  return map && typeof map === "object" ? map : {};
+}
+
+export function saveCachedAnalysis(gameId: string, analysis: any): void {
+  const current = loadCachedAnalyses();
+  current[gameId] = analysis;
+  const entries = Object.entries(current).slice(-40);
+  writeJson(KEYS.GAME_ANALYSES, Object.fromEntries(entries));
+}
+
+export function loadReportedIssues(): ReportedIssue[] {
+  const list = readJson<ReportedIssue[]>(KEYS.REPORTED_ISSUES, []);
+  return Array.isArray(list) ? list : [];
+}
+
+export function saveReportedIssue(issue: ReportedIssue): void {
+  const current = loadReportedIssues();
+  writeJson(KEYS.REPORTED_ISSUES, [issue, ...current].slice(0, 100));
+}
+
+export function loadActiveGame(): ActiveGameSnapshot | null {
+  return readJson<ActiveGameSnapshot | null>(KEYS.ACTIVE_GAME, null);
+}
+
+export function saveActiveGame(snapshot: ActiveGameSnapshot | null): void {
+  if (typeof window === "undefined") return;
+  if (!snapshot) {
+    window.localStorage.removeItem(KEYS.ACTIVE_GAME);
+  } else {
+    writeJson(KEYS.ACTIVE_GAME, snapshot);
+  }
+}
+
+/* ==========================================================================
+   Legacy & Test-Compatible Helpers
+   ========================================================================== */
+
+export function mergeProgress(local: TutorProgress, other: TutorProgress): TutorProgress {
+  const unionLessons = Array.from(new Set([...(local.completedLessons || []), ...(other.completedLessons || [])]));
+  const solved = Math.max(local.solvedPositions, other.solvedPositions);
+  const mistakes = Math.max(local.recordedMistakes, other.recordedMistakes);
+  const total = solved + mistakes;
+  const accuracy = total > 0 ? Math.round((solved / total) * 100) : Math.max(local.weeklyAccuracy, other.weeklyAccuracy);
+  const streak = Math.max(local.streak, other.streak);
+  const latestDate = !local.lastActiveDate
+    ? other.lastActiveDate
+    : !other.lastActiveDate
+    ? local.lastActiveDate
+    : local.lastActiveDate > other.lastActiveDate
+    ? local.lastActiveDate
+    : other.lastActiveDate;
+
+  return {
+    solvedPositions: solved,
+    recordedMistakes: mistakes,
+    weeklyAccuracy: accuracy,
+    streak,
+    completedLessons: unionLessons,
+    lastActiveDate: latestDate,
+    reviewDue: Math.max(local.reviewDue, other.reviewDue),
+    puzzleRating: Math.max(local.puzzleRating ?? 1000, other.puzzleRating ?? 1000),
+    lastLessonId: local.lastLessonId ?? other.lastLessonId ?? null,
+    lessonProgress: { ...(other.lessonProgress ?? {}), ...(local.lessonProgress ?? {}) }
+  };
+}
+
+export function clearLocalData() {
+  if (typeof window === "undefined") return;
+  try {
+    Object.values(KEYS).forEach(k => window.localStorage.removeItem(k));
+    window.localStorage.removeItem("chess-tutor.settings.v1");
+  } catch {
+    // ignore
+  }
+}
+
+export function loadProgress(): TutorProgress {
+  const parsed = readJson<Partial<TutorProgress>>(KEYS.PROGRESS, defaultProgress);
+  return { ...defaultProgress, ...parsed };
+}
+
+export function saveProgress(progress: TutorProgress) {
+  writeJson(KEYS.PROGRESS, progress);
+}
+
+export function touchActivity(progress: TutorProgress): TutorProgress {
+  const today = localDateKey();
+  if (progress.lastActiveDate === today) return progress;
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayKey = localDateKey(yesterday);
+  return {
+    ...progress,
+    streak: progress.lastActiveDate === yesterdayKey ? progress.streak + 1 : 1,
+    lastActiveDate: today
+  };
+}
+
+export function loadOnboarding(): OnboardingProfile {
+  return { ...defaultOnboarding, ...readJson<Partial<OnboardingProfile>>(KEYS.ONBOARDING, defaultOnboarding) };
+}
+
+export function saveOnboarding(profile: OnboardingProfile) {
+  writeJson(KEYS.ONBOARDING, profile);
+}
+
+export function loadGameHistory(): TutorGameRecord[] {
+  const parsed = readJson<TutorGameRecord[]>(KEYS.GAMES, []);
+  return Array.isArray(parsed) ? parsed.slice(0, 100) : [];
+}
+
+export function saveGameRecord(record: TutorGameRecord) {
+  const normalized: TutorGameRecord = {
+    ...record,
+    id: record.id ?? `arena:${generateUuid()}`,
+    source: record.source ?? "arena",
+    playedAt: record.playedAt ?? Date.now()
+  };
+  const current = loadGameHistory().filter(g => g.id !== normalized.id);
+  writeJson(KEYS.GAMES, [normalized, ...current].slice(0, 100));
+}
+
+export function loadLinkedAccounts(): LinkedAccountInfo[] {
+  const parsed = readJson<LinkedAccountInfo[]>(KEYS.LINKED_ACCOUNTS, []);
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+export function saveLinkedAccounts(accounts: LinkedAccountInfo[]) {
+  writeJson(KEYS.LINKED_ACCOUNTS, accounts);
+}
+
+export function loadImportedAccountGames(): StoredAccountGame[] {
+  const parsed = readJson<StoredAccountGame[]>(KEYS.IMPORTED_GAMES, []);
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+export function saveImportedAccountGames(games: StoredAccountGame[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(KEYS.IMPORTED_GAMES, JSON.stringify(games.slice(0, 1000)));
+  } catch {
+    try {
+      window.localStorage.setItem(KEYS.IMPORTED_GAMES, JSON.stringify(games.slice(0, 300)));
+    } catch {
+      // ignore
+    }
+  }
+}
+
+const REVIEW_INTERVALS = [1, 3, 7, 14, 30] as const;
+
+export function loadReviewSchedule(puzzleKeys: string[]): TutorReviewItem[] {
+  const existing = readJson<TutorReviewItem[]>(KEYS.REVIEW, []);
+  const byKey = new Map(
+    (Array.isArray(existing) ? existing : [])
+      .filter(i => i && typeof i.puzzleKey === "string")
+      .map(i => [i.puzzleKey, i])
+  );
+  const requested = new Set(puzzleKeys);
+  const schedule = [
+    ...puzzleKeys.map(
+      puzzleKey =>
+        byKey.get(puzzleKey) ?? {
+          puzzleKey,
+          dueAt: new Date().toISOString(),
+          intervalDays: 1,
+          repetitions: 0,
+          lastResult: null
+        }
+    ),
+    ...(Array.isArray(existing) ? existing.filter(i => i && !requested.has(i.puzzleKey)) : [])
+  ];
+  saveReviewSchedule(schedule);
+  return schedule;
+}
+
+export function saveReviewSchedule(schedule: TutorReviewItem[]) {
+  writeJson(KEYS.REVIEW, schedule);
+}
+
+export function applyReviewResult(schedule: TutorReviewItem[], puzzleKey: string, correct: boolean): TutorReviewItem[] {
+  const now = new Date();
+  const exists = schedule.some(i => i.puzzleKey === puzzleKey);
+  const list = exists
+    ? schedule
+    : [...schedule, { puzzleKey, dueAt: now.toISOString(), intervalDays: 1, repetitions: 0, lastResult: null }];
+  return list.map(item => {
+    if (item.puzzleKey !== puzzleKey) return item;
+    const nextRepetitions = correct ? item.repetitions + 1 : 0;
+    const intervalIndex = Math.min(nextRepetitions, REVIEW_INTERVALS.length) - 1;
+    const intervalDays = correct && intervalIndex >= 0 ? REVIEW_INTERVALS[intervalIndex] : 1;
+    const dueAt = new Date(now);
+    dueAt.setDate(dueAt.getDate() + intervalDays);
+    return {
+      ...item,
+      dueAt: dueAt.toISOString(),
+      intervalDays,
+      repetitions: nextRepetitions,
+      lastResult: correct ? "correct" : "wrong"
+    };
+  });
+}
+
+export function countDueReviews(schedule: TutorReviewItem[], now = new Date()): number {
+  return schedule.filter(item => new Date(item.dueAt).getTime() <= now.getTime()).length;
+}
+
+export function loadAttemptHistory(): TutorAttemptRecord[] {
+  const parsed = readJson<TutorAttemptRecord[]>(KEYS.ATTEMPTS, []);
+  return Array.isArray(parsed) ? parsed.slice(0, 150) : [];
+}
+
+export function saveAttempt(record: TutorAttemptRecord) {
+  const current = loadAttemptHistory();
+  writeJson(KEYS.ATTEMPTS, [record, ...current].slice(0, 150));
+}
+
+export function loadGameMistakes(): TutorGameMistake[] {
+  const parsed = readJson<TutorGameMistake[]>(KEYS.GAME_MISTAKES, []);
+  return Array.isArray(parsed) ? parsed.slice(0, 150) : [];
+}
+
+export function saveGameMistakes(records: TutorGameMistake[]) {
+  const current = loadGameMistakes();
+  const byKey = new Map(current.map(item => [item.key, item]));
+  for (const r of records) byKey.set(r.key, r);
+  const merged = [...byKey.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 150);
+  writeJson(KEYS.GAME_MISTAKES, merged);
+}
+
+export function exportAllLocalData(): string {
+  return JSON.stringify(
+    {
+      version: 3,
+      exportedAt: new Date().toISOString(),
+      appSettings: loadAppSettings(),
+      onboarding: loadOnboarding(),
+      customBots: loadCustomBots(),
+      lessonProgress: loadLessonProgressMap(),
+      puzzleStore: loadPuzzleStore(),
+      reviewSchedule: loadReviewSchedule([]),
+      gameMistakes: loadGameMistakes(),
+      arenaGames: loadGameHistory(),
+      linkedAccounts: loadLinkedAccounts(),
+      importedGames: loadImportedAccountGames(),
+      gameAnalyses: loadCachedAnalyses(),
+      reportedIssues: loadReportedIssues()
+    },
+    null,
+    2
+  );
+}
+
+export function importAllLocalData(jsonText: string): { ok: boolean; message: string } {
+  if (typeof window === "undefined") return { ok: false, message: "Browser storage unavailable." };
+  try {
+    const data = JSON.parse(jsonText);
+    if (!data || typeof data !== "object") return { ok: false, message: "Invalid backup JSON format." };
+    if (data.appSettings) writeJson(KEYS.APP_SETTINGS, data.appSettings);
+    if (data.onboarding) writeJson(KEYS.ONBOARDING, data.onboarding);
+    if (Array.isArray(data.customBots)) writeJson(KEYS.CUSTOM_BOTS, data.customBots);
+    if (data.lessonProgress) writeJson(KEYS.LESSON_PROGRESS, data.lessonProgress);
+    if (data.puzzleStore) writeJson(KEYS.PUZZLE_STORE, data.puzzleStore);
+    if (Array.isArray(data.reviewSchedule)) writeJson(KEYS.REVIEW, data.reviewSchedule);
+    if (Array.isArray(data.gameMistakes)) writeJson(KEYS.GAME_MISTAKES, data.gameMistakes);
+    if (Array.isArray(data.arenaGames)) writeJson(KEYS.GAMES, data.arenaGames);
+    if (Array.isArray(data.linkedAccounts)) writeJson(KEYS.LINKED_ACCOUNTS, data.linkedAccounts);
+    if (Array.isArray(data.importedGames)) writeJson(KEYS.IMPORTED_GAMES, data.importedGames);
+    if (data.gameAnalyses) writeJson(KEYS.GAME_ANALYSES, data.gameAnalyses);
+    if (Array.isArray(data.reportedIssues)) writeJson(KEYS.REPORTED_ISSUES, data.reportedIssues);
+    return { ok: true, message: "Backup imported successfully." };
+  } catch (err: unknown) {
+    return { ok: false, message: err instanceof Error ? err.message : "Could not parse backup file." };
   }
 }

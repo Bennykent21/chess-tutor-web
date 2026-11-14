@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Tessa, a chess bot">
+  <path d="M28 200 C32 170 60 152 100 152 C140 152 168 170 172 200 Z" fill="#774F38"/>
+  <path d="M112 153 C142 155 168 172 172 200 L136 200 C134 178 126 162 112 153 Z" fill="#67432F"/>
+  <circle cx="52" cy="84" r="11" fill="#8A5F45"/>
+  <circle cx="148" cy="84" r="11" fill="#774F38"/>
+  <ellipse cx="100" cy="106" rx="54" ry="50" fill="#8A5F45"/>
+  <path d="M100 56 A54 50 0 0 1 100 156 A39.96 50 0 0 0 100 56 Z" fill="#774F38"/>
+  <ellipse cx="74" cy="74" rx="11" ry="5.5" fill="#FFFFFF" opacity=".26" transform="rotate(-28 74 74)"/>
+  <ellipse cx="100" cy="124" rx="40" ry="30" fill="#E0C8A6"/>
+  <path d="M62 124 L40 118" fill="none" stroke="#F4E8D2" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M62 131 L40 133" fill="none" stroke="#F4E8D2" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M138 124 L160 118" fill="none" stroke="#F4E8D2" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M138 131 L160 133" fill="none" stroke="#F4E8D2" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M92 112 C92 106 108 106 108 112 C108 118 102 122 100 122 C98 122 92 118 92 112 Z" fill="#1F2430"/>
+  <path d="M100 122 L100 127 M91 129 Q95.5 135 100 129 Q104.5 135 109 129" fill="none" stroke="#1F2430" stroke-width="3.6" stroke-linecap="round"/>
+  <circle cx="80" cy="96" r="17" fill="#F4EEE2" opacity=".82"/>
+  <circle cx="120" cy="96" r="17" fill="#F4EEE2" opacity=".82"/>
+  <circle cx="80" cy="97" r="6.0" fill="#1F2430"/>
+  <circle cx="81.92" cy="94.92" r="2.08" fill="#FFFFFF"/>
+  <circle cx="120" cy="97" r="6.0" fill="#1F2430"/>
+  <circle cx="121.92" cy="94.92" r="2.08" fill="#FFFFFF"/>
+  <circle cx="80" cy="96" r="17" fill="none" stroke="#C99A4E" stroke-width="3.6"/>
+  <circle cx="120" cy="96" r="17" fill="none" stroke="#C99A4E" stroke-width="3.6"/>
+  <path d="M97 94 Q100 91 103 94" fill="none" stroke="#C99A4E" stroke-width="3.6" stroke-linecap="round"/>
+</svg>

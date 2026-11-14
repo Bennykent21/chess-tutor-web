@@ -1,11 +1,14 @@
 import { ChessPiece } from "./ChessPiece";
+import { PieceSetId } from "../domain/theme";
 
 export function PromotionModal({
   color,
+  pieceSet = "cburnett",
   onSelect,
   onCancel
 }: {
   color: "w" | "b";
+  pieceSet?: PieceSetId | string;
   onSelect: (piece: "q" | "r" | "b" | "n") => void;
   onCancel: () => void;
 }) {
@@ -17,26 +20,26 @@ export function PromotionModal({
   ];
 
   return (
-    <div className="promotion-overlay" role="dialog" aria-modal="true" aria-label="Pawn Promotion">
-      <div className="promotion-card">
-        <div className="promotion-title">Promote Pawn</div>
-        <div className="promotion-choices">
+    <div className="ct-modal-overlay" role="dialog" aria-modal="true" aria-label="Pawn Promotion">
+      <div className="ct-promotion-card">
+        <div className="ct-promotion-title">Promote Pawn</div>
+        <div className="ct-promotion-choices">
           {pieces.map(({ type, label }) => (
             <button
               key={type}
-              className="promotion-option"
+              type="button"
+              className="ct-promotion-option"
               onClick={() => onSelect(type)}
-              title={label}
               aria-label={`Promote to ${label}`}
             >
-              <div className="promotion-piece-wrap">
-                <ChessPiece color={color} type={type} />
+              <div className="ct-promotion-piece">
+                <ChessPiece color={color} type={type} pieceSet={pieceSet} />
               </div>
-              <span className="promotion-label">{label}</span>
+              <span className="ct-promotion-label">{label}</span>
             </button>
           ))}
         </div>
-        <button className="promotion-cancel-btn" onClick={onCancel}>
+        <button type="button" className="ct-btn ct-btn-ghost" onClick={onCancel}>
           Cancel
         </button>
       </div>

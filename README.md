@@ -1,53 +1,31 @@
 # Chess Tutor Web
 
-The web client for Chess Tutor.
+A 100% client-side, local-first chess learning, puzzle, and bot-play web application tailored for desktop and mobile browsers — powered by React, TypeScript, Vite, `chess.js`, and Stockfish.js 19 WASM.
 
-This repository is intentionally web-only. The Android implementation lives in the separate `Bennykent21/Chess-tutor-app` repository.
+## Architecture & Tabs (Zero Backend / Zero Supabase)
 
-## Current foundation
+- **Home (Play Hub)**: Quick match bot matched to your rating, 12 unique roster bots + custom bot builder (rating, aggression, trades, mistake frequency, pace, resignation policy, custom White/Black repertoire), **Opening Battle** (`Play it`, `Drill it`, `Surprise me` across 3,865 ECO lines), Play from Position (FEN), Watch Two Bots, and Explore & Analyse (3-line Stockfish 19 Multi-PV).
+- **Learn**: 6 structured categories (`Basics`, `Openings`, `Tactics`, `Middlegame`, `Endgames`, `Blunders`) spanning 37 JSON courses with interactive explain/play/quiz steps, coach mascot bubble, and deep links to Opening Battle and related puzzles.
+- **Puzzles**: 5 Worlds / 50-Level progression path (`400` to `2400` rating), 13,485 Lichess puzzles with precomputed accepted alternative moves, Daily Puzzle, **Timed Rush** (`3m`, `5m`, `Survival 3-strikes`), By Goal & Theme, Custom Run, and spaced-repetition **Mistakes Review** fed by your own analysed games.
+- **Account**: Player rank ladder with 3D rank pieces, Lichess & Chess.com profile verification and game importer (`100` / `300` / `1000` depth), clickable SVG **Game Review** with Multi-PV Stockfish analysis and key-moment practice, Performance & Opening win-rate dashboards, Training metrics, 16 achievement badges, live Board & Piece Set customizer (11 board themes, 4 vector piece sets, 4 app themes × light/dark/system), Stockfish 19 Engine Health benchmark, and JSON Export/Import backup.
 
-- React + TypeScript + Vite
-- `chess.js` for legal move validation and browser chess sessions
-- Coach-first training board with SVG pieces, hints, mistake retry, and position feedback
-- Learn → practice flow
-- Play → local bot game flow
-- Review → playable recall queue
-- Persistent local progress
-- Optional Supabase authentication and cloud progress sync
-- Persistent spaced-repetition review queue with 1 / 3 / 7 / 14 / 30 day intervals
-- Local-first game history with optional cloud game history hydration
-- Shared database migration for profiles, progress, training attempts, review items, lesson progress, and games
-
-## Design direction
-
-Chess Tutor is a private coaching studio rather than a generic chess platform clone. The interface keeps the board useful, but the explanation is the product: what happened, why it happened, and what to train next.
-
-The web app should share product concepts and Supabase data with Android while keeping web navigation, density, keyboard/mouse interaction, and responsive layout native to the browser.
-
-## Local setup
+## Local Setup
 
 ```bash
 npm install
 npm run dev
 ```
 
-The default development server is available at http://localhost:3000.
+Runs on `http://localhost:3000`.
 
-## Supabase setup
+Verify tests, types, and production bundle:
 
-Create a Supabase project and set:
-
-```env
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
+```bash
+npm test
+npm run lint
+npm run build
 ```
 
-Apply `supabase/migrations/0001_chess_tutor_core.sql` to the shared project before using cloud sync.
+## Licensing & Third-Party Notices
 
-The app remains usable without Supabase credentials. In that mode, progress, review scheduling, and recent games are stored locally in the browser. When a user signs in, progress, review items, training attempts, player profile, and completed games can sync to Supabase. Never put a Supabase service-role key in the web app; only the public anon key belongs in `VITE_SUPABASE_ANON_KEY`.
-
-## Browser engine
-
-Play uses Stockfish.js 19 in a browser Web Worker for computer moves, and Train uses the same engine for live position evaluation. The lite single-threaded WASM build is used to keep the browser payload smaller than the full engine. Stockfish.js is GPL-3.0 licensed; see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) for the third-party notice.
-
-CI validates the browser engine build with the same Vite/TypeScript production command used for deployment.
+Stockfish.js 19 runs locally inside a browser Web Worker and is GPL-3.0 licensed. See [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) and bundled license files in `public/assets/licenses/`.
