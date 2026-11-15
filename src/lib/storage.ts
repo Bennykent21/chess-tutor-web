@@ -36,9 +36,9 @@ export interface AppSettings {
 }
 
 export const defaultAppSettings: AppSettings = {
-  appTheme: "slate",
-  appearance: "dark",
-  boardThemeId: "slate",
+  appTheme: "mono",
+  appearance: "system",
+  boardThemeId: "mono",
   pieceSetId: "cburnett",
   mascotId: "pip",
   boardOrientation: "follow-side",

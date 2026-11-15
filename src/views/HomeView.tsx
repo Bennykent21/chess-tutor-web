@@ -31,7 +31,7 @@ import {
   createBattlePlan,
   groupFamilyLines
 } from "../domain/openings";
-import { LessonCourse, continueLessonFromLibrary } from "../domain/lessons";
+import { LessonCourse, continueLessonFromLibrary, firstFenOfCourse } from "../domain/lessons";
 import { Puzzle, PuzzlePack, dailyPuzzleForDate } from "../domain/puzzles";
 import { botAssetUrl, mascotAssetUrl } from "../domain/theme";
 import {
@@ -47,6 +47,18 @@ import {
 import { PlayBoardLaunch, TIME_CONTROLS, TimeControlOption } from "./PlayBoardView";
 import { CoachBubble } from "../components/CoachBubble";
 import { BoardHost } from "../components/BoardHost";
+import {
+  ArtTile,
+  BoardPicture,
+  BotPicture,
+  HeroCard,
+  PictureTile,
+  PrimaryButton,
+  ScreenTitle,
+  SectionHeader,
+  Streak,
+  TickMark
+} from "../components/ct";
 
 export type HomeSubRoute =
   | { view: "hub" }
@@ -79,7 +91,8 @@ export function HomeView({
   onOpenLesson,
   onOpenDailyPuzzle,
   onOpenMistakesReview,
-  onOpenHealthCheck
+  onOpenHealthCheck,
+  isDark
 }: {
   route: HomeSubRoute;
   setRoute: (r: HomeSubRoute) => void;
@@ -102,6 +115,7 @@ export function HomeView({
   onOpenDailyPuzzle: (puzzle: Puzzle) => void;
   onOpenMistakesReview: () => void;
   onOpenHealthCheck: () => void;
+  isDark: boolean;
 }) {
   const [welcomeName, setWelcomeName] = useState(settings.playerName);
   const streak = computeDayStreak(puzzleStore.activeDays);
@@ -275,260 +289,145 @@ export function HomeView({
     );
   }
 
-  const greetingName = settings.playerName || "Player";
+  const greetingName = settings.playerName.trim();
+  const pieceSet = settings.pieceSetId;
+  const boardThemeId = settings.boardThemeId;
+
+  const resumeGame = () => {
+    if (!activeGame) return;
+    const found =
+      [...customBots, ...BOT_ROSTER.map(b => b.profile)].find(b => b.id === activeGame.botId) ?? quickMatchBot;
+    onLaunchPlay({
+      mode: "bot",
+      bot: found,
+      playerColor: activeGame.playerColor,
+      timeControl: TIME_CONTROLS[0],
+      takebacks: true,
+      hints: true,
+      evalBar: false,
+      resumeSnapshot: activeGame
+    });
+  };
+
+  const quickMatch = () =>
+    onLaunchPlay({
+      mode: "bot",
+      bot: quickMatchBot,
+      playerColor: Math.random() < 0.5 ? "w" : "b",
+      timeControl: TIME_CONTROLS[2],
+      takebacks: true,
+      hints: true,
+      evalBar: false
+    });
+
+  const resumeFen = activeGame?.fen ?? null;
 
   return (
-    <div className="ct-page">
-      <header className="ct-page-header">
-        <div>
-          <div className="ct-eyebrow">PLAY HUB</div>
-          <h1>Hi, {greetingName}</h1>
-        </div>
-        <div className="ct-header-stats">
-          <div className="ct-stat-badge" title="Daily puzzle streak">
-            <Flame size={16} className={streak > 0 ? "ct-accent-text" : ""} />
-            <span className="mono-num">{streak}</span>
-          </div>
-          <div className="ct-stat-badge" title="Your Chess Tutor rating">
-            <span className="ct-muted">Rating</span>
-            <strong className="mono-num">{effectiveRating}</strong>
-          </div>
-          <button
-            type="button"
-            className="ct-btn ct-btn-ghost ct-hide-mobile"
-            onClick={onOpenHealthCheck}
-            title="Stockfish 19 diagnostics"
-          >
-            <Cpu size={16} /> Engine
-          </button>
-        </div>
-      </header>
+    <div className="ct2-page">
+      <ScreenTitle title={greetingName ? `Hi, ${greetingName}` : "Ready to play?"}>
+        <Streak days={streak} />
+      </ScreenTitle>
 
-      {/* Primary Top Grid: Continue + Quick Match */}
-      <div className="ct-home-hero-grid">
+      <div className="ct2-gutter ct2-enter">
         {activeGame ? (
-          <div className="ct-hero-card">
-            <div className="ct-hero-copy">
-              <div className="ct-kicker">Resume Game</div>
-              <h2>vs {activeGame.botName} ({activeGame.botRating})</h2>
-              <p className="ct-muted">
-                {Math.ceil(activeGame.uciMoves.length / 2)} moves played · You play{" "}
-                {activeGame.playerColor === "w" ? "White" : "Black"}
-              </p>
-              <button
-                type="button"
-                className="ct-btn ct-btn-primary"
-                onClick={() => {
-                  const found = [...customBots, ...BOT_ROSTER.map(b => b.profile)].find(
-                    b => b.id === activeGame.botId
-                  ) ?? quickMatchBot;
-                  onLaunchPlay({
-                    mode: "bot",
-                    bot: found,
-                    playerColor: activeGame.playerColor,
-                    timeControl: TIME_CONTROLS[0],
-                    takebacks: true,
-                    hints: true,
-                    evalBar: false,
-                    resumeSnapshot: activeGame
-                  });
-                }}
-              >
-                <Play size={16} /> Continue Game
-              </button>
-            </div>
-            <img src={botAssetUrl(activeGame.botFace)} alt={activeGame.botName} className="ct-hero-bot-img" />
-          </div>
+          <HeroCard
+            kicker="Your game"
+            title={`vs ${activeGame.botName}`}
+            subtitle={`Move ${Math.floor(activeGame.uciMoves.length / 2) + 1}, you play ${
+              activeGame.playerColor === "w" ? "White" : "Black"
+            }`}
+            onClick={resumeGame}
+            ariaLabel="Resume your game"
+            picture={
+              <BoardPicture
+                fen={resumeFen}
+                boardThemeId={boardThemeId}
+                pieceSet={pieceSet}
+                whiteAtBottom={activeGame.playerColor === "w"}
+                aspect={3}
+              />
+            }
+          />
         ) : nextLesson ? (
-          <div className="ct-hero-card">
-            <div className="ct-hero-copy">
-              <div className="ct-kicker">{nextLesson.started ? "Continue Learning" : "Up Next in Learn"}</div>
-              <h2>{nextLesson.course.title}</h2>
-              <p className="ct-muted">
-                Lesson {nextLesson.number} of {nextLesson.total} · {nextLesson.lesson.title}
-              </p>
-              <button
-                type="button"
-                className="ct-btn ct-btn-primary"
-                onClick={() => onOpenLesson(nextLesson.course, nextLesson.lesson.id)}
-              >
-                <Play size={16} /> {nextLesson.started ? "Resume Lesson" : "Start Lesson"}
-              </button>
-            </div>
-            <img
-              src={mascotAssetUrl(settings.mascotId, "ready")}
-              alt="Coach"
-              className="ct-hero-bot-img"
-            />
-          </div>
-        ) : null}
-
-        <div className="ct-hero-card">
-          <div className="ct-hero-copy">
-            <div className="ct-kicker">Quick Match</div>
-            <h2>Play {quickMatchBot.name} ({quickMatchBot.rating})</h2>
-            <p className="ct-muted">Matched closely to your {effectiveRating} rating.</p>
-            <div className="ct-btn-row">
-              <button
-                type="button"
-                className="ct-btn ct-btn-primary"
-                onClick={() =>
-                  onLaunchPlay({
-                    mode: "bot",
-                    bot: quickMatchBot,
-                    playerColor: Math.random() < 0.5 ? "w" : "b",
-                    timeControl: TIME_CONTROLS[2],
-                    takebacks: true,
-                    hints: true,
-                    evalBar: false
-                  })
-                }
-              >
-                <Swords size={16} /> Play 10 min
-              </button>
-              <button
-                type="button"
-                className="ct-btn ct-btn-secondary"
-                onClick={() => setRoute({ view: "bot-setup", bot: quickMatchBot })}
-              >
-                Options
-              </button>
-            </div>
-          </div>
-          <img src={botAssetUrl(quickMatchBot.face)} alt={quickMatchBot.name} className="ct-hero-bot-img" />
-        </div>
+          <HeroCard
+            kicker={nextLesson.course.title}
+            title={nextLesson.lesson.title}
+            subtitle={`Lesson ${nextLesson.number} of ${nextLesson.total}`}
+            progress={(nextLesson.number - 1) / Math.max(1, nextLesson.total)}
+            onClick={() => onOpenLesson(nextLesson.course, nextLesson.lesson.id)}
+            ariaLabel={nextLesson.started ? "Continue the lesson" : "Start the lesson"}
+            picture={
+              <BoardPicture
+                fen={firstFenOfCourse(nextLesson.course)}
+                boardThemeId={boardThemeId}
+                pieceSet={pieceSet}
+                aspect={3}
+              />
+            }
+          />
+        ) : (
+          <HeroCard
+            kicker="Learn"
+            title="Keep learning"
+            subtitle="Fancy a game? Try a quick match, or pick a bot."
+            onClick={() => setRoute({ view: "bots" })}
+            picture={<BoardPicture fen={null} boardThemeId={boardThemeId} pieceSet={pieceSet} aspect={3} />}
+          />
+        )}
       </div>
 
-      {/* Action Tiles: Daily Challenge & Recommended Next Step */}
-      <section className="ct-section">
-        <div className="ct-two-col-grid">
-          <button
-            type="button"
-            className="ct-action-tile"
-            disabled={!dailyPuzzle}
-            onClick={() => dailyPuzzle && onOpenDailyPuzzle(dailyPuzzle)}
-          >
-            <div className="ct-action-tile-body">
-              <div className="ct-kicker">Daily Puzzle</div>
-              <strong>{todaySolvedDaily ? "Solved today!" : "Today's tactical test"}</strong>
-              <small>
-                {dailyPuzzle ? `Rated ${dailyPuzzle.rating} · Ready offline` : "Loading puzzle pack…"}
-              </small>
-            </div>
-            <ChevronRight size={18} />
-          </button>
+      <div className="ct2-gutter ct2-enter" style={{ animationDelay: "60ms" }}>
+        <PrimaryButton big onClick={() => setRoute({ view: "bots" })}>
+          <Play size={22} fill="currentColor" /> Play
+        </PrimaryButton>
+      </div>
 
-          <button
-            type="button"
-            className="ct-action-tile"
-            onClick={() => {
-              if (dueMistakesCount > 0) onOpenMistakesReview();
-              else setRoute({ view: "battle" });
-            }}
-          >
-            <div className="ct-action-tile-body">
-              <div className="ct-kicker">Recommended</div>
-              <strong>
-                {dueMistakesCount > 0
-                  ? `Review ${dueMistakesCount} game mistake${dueMistakesCount === 1 ? "" : "s"}`
-                  : "Practise an Opening Battle"}
-              </strong>
-              <small>
-                {dueMistakesCount > 0
-                  ? "Spaced repetition from your own games"
-                  : "Test your repertoire against an adaptive bot"}
-              </small>
-            </div>
-            <ChevronRight size={18} />
-          </button>
-        </div>
-      </section>
+      <div className="ct2-gutter ct2-tile-row ct2-enter" style={{ animationDelay: "120ms" }}>
+        <PictureTile
+          title="Daily puzzle"
+          subtitle={todaySolvedDaily ? "Solved today" : "Waiting for you"}
+          onClick={() => dailyPuzzle && onOpenDailyPuzzle(dailyPuzzle)}
+          ariaLabel="Open the daily puzzle"
+          trailing={todaySolvedDaily ? <TickMark /> : undefined}
+          picture={
+            <BoardPicture
+              fen={dailyPuzzle?.fen}
+              boardThemeId={boardThemeId}
+              pieceSet={pieceSet}
+              whiteAtBottom={dailyPuzzle ? dailyPuzzle.fen.split(" ")[1] === "b" : true}
+              aspect={1.1}
+            />
+          }
+        />
+        <PictureTile
+          title="Quick match"
+          subtitle={`${quickMatchBot.name}, ${quickMatchBot.rating}`}
+          fade="soft"
+          onClick={quickMatch}
+          ariaLabel={`Play ${quickMatchBot.name} now`}
+          picture={<BotPicture src={botAssetUrl(quickMatchBot.face)} />}
+        />
+      </div>
 
-      {/* Meet the Bots Horizontal Strip */}
-      <section className="ct-section">
-        <div className="ct-section-head">
-          <h2>Meet the bots</h2>
-          <button type="button" className="ct-text-btn" onClick={() => setRoute({ view: "bots" })}>
-            See all ({BOT_ROSTER.length + customBots.length}) <ChevronRight size={15} />
-          </button>
+      <div>
+        <div className="ct2-gutter">
+          <SectionHeader title="More ways to play" />
         </div>
-        <div className="ct-bot-carousel">
-          {customBots.map(bot => (
-            <button
-              key={bot.id}
-              type="button"
-              className="ct-bot-card"
-              onClick={() => setRoute({ view: "bot-setup", bot })}
-            >
-              <img src={botAssetUrl(bot.face)} alt={bot.name} className="ct-bot-avatar" />
-              <strong>{bot.name}</strong>
-              <span className="mono-num">{bot.rating}</span>
-              <small>Custom</small>
-            </button>
-          ))}
-          {BOT_ROSTER.map(entry => (
-            <button
-              key={entry.profile.id}
-              type="button"
-              className="ct-bot-card"
-              onClick={() => setRoute({ view: "bot-setup", bot: entry.profile })}
-            >
-              <img src={botAssetUrl(entry.profile.face)} alt={entry.profile.name} className="ct-bot-avatar" />
-              <strong>{entry.profile.name}</strong>
-              <span className="mono-num">{entry.profile.rating}</span>
-              <small>{BOT_STYLES[entry.profile.style].label}</small>
-            </button>
-          ))}
-          <button
-            type="button"
-            className="ct-bot-card ct-bot-card-add"
-            onClick={() => setRoute({ view: "builder" })}
-          >
-            <div className="ct-bot-add-circle">
-              <Plus size={22} />
-            </div>
-            <strong>Build a bot</strong>
-            <small>Custom style &amp; book</small>
-          </button>
+        <div className="ct2-carousel ct2-enter" style={{ animationDelay: "180ms" }}>
+          {dueMistakesCount > 0 ? (
+            <ArtTile
+              compact
+              dark={isDark}
+              scene="blunders"
+              title={dueMistakesCount === 1 ? "1 mistake to fix" : `${dueMistakesCount} mistakes to fix`}
+              onClick={onOpenMistakesReview}
+            />
+          ) : null}
+          <ArtTile compact dark={isDark} scene="battle" title="Opening battle" onClick={() => setRoute({ view: "battle" })} />
+          <ArtTile compact dark={isDark} scene="position" title="From a position" onClick={() => setRoute({ view: "position" })} />
+          <ArtTile compact dark={isDark} scene="explore" title="Explore" onClick={() => setRoute({ view: "explore" })} />
         </div>
-      </section>
-
-      {/* More Ways to Play */}
-      <section className="ct-section">
-        <div className="ct-section-head">
-          <h2>More ways to play</h2>
-        </div>
-        <div className="ct-modes-grid">
-          <button type="button" className="ct-mode-tile" onClick={() => setRoute({ view: "battle" })}>
-            <img src="/assets/art/art_battle_night.webp" alt="" className="ct-mode-art" />
-            <div>
-              <strong>Opening Battle</strong>
-              <small>Play it, Drill it, or Surprise me from 3,865 lines</small>
-            </div>
-          </button>
-          <button type="button" className="ct-mode-tile" onClick={() => setRoute({ view: "position" })}>
-            <img src="/assets/art/art_position_night.webp" alt="" className="ct-mode-art" />
-            <div>
-              <strong>Play from a Position</strong>
-              <small>Set up any FEN or custom board and challenge Stockfish</small>
-            </div>
-          </button>
-          <button type="button" className="ct-mode-tile" onClick={() => setRoute({ view: "explore" })}>
-            <img src="/assets/art/art_explore_night.webp" alt="" className="ct-mode-art" />
-            <div>
-              <strong>Explore &amp; Analyse</strong>
-              <small>Free board with 3-line Stockfish 19 Multi-PV</small>
-            </div>
-          </button>
-          <button type="button" className="ct-mode-tile" onClick={() => setRoute({ view: "watch" })}>
-            <Eye size={32} className="ct-accent-text" />
-            <div>
-              <strong>Watch Two Bots</strong>
-              <small>Pit any two bots against each other live</small>
-            </div>
-          </button>
-        </div>
-      </section>
+      </div>
     </div>
   );
 }
