@@ -408,7 +408,7 @@ export default function App() {
       {!isBoardFocus && (
         <aside className="ct-sidebar" aria-label="Primary navigation">
           <div className="ct-brand">
-            <img src="/assets/art/art_crown_night.webp" alt="" className="ct-brand-icon" />
+            <img src="/assets/mascot/pip_ready.svg" alt="" className="ct-brand-icon" />
             <div>
               <strong>Chess Tutor</strong>
               <small>Offline &amp; Stockfish 19</small>
@@ -489,6 +489,7 @@ export default function App() {
               setPuzzlesRoute({ view: "player", config: { kind: "daily", puzzles: [p], title: "Daily Puzzle" } });
             }}
             onOpenMistakesReview={handleOpenMistakesReview}
+            isDark={isDarkAppearance}
             onOpenHealthCheck={() => {
               setActiveTab("account");
               setAccountRoute({ view: "settings" });
@@ -605,7 +606,7 @@ export default function App() {
                 onClick={() => handleTabClick(item.id)}
               >
                 <span className="ct-bottom-pill">
-                  <Icon size={19} />
+                  <Icon size={22} />
                 </span>
                 <span>{item.label}</span>
               </button>

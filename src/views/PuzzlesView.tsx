@@ -59,6 +59,16 @@ import {
 } from "../lib/storage";
 import { BoardArrow, BoardHighlight, BoardHost } from "../components/BoardHost";
 import { CoachBubble } from "../components/CoachBubble";
+import {
+  BOARD_SCENES,
+  BoardPicture,
+  HeroCard,
+  ListRow,
+  PictureTile,
+  ScreenTitle,
+  SectionHeader,
+  TickMark
+} from "../components/ct";
 
 export type MistakeRunItem =
   | { kind: "puzzle"; puzzle: Puzzle }
@@ -74,6 +84,7 @@ export type PuzzleRunConfig =
 
 export type PuzzlesSubRoute =
   | { view: "home" }
+  | { view: "levels" }
   | { view: "modes" }
   | { view: "theme" }
   | { view: "custom" }
@@ -340,78 +351,21 @@ export function PuzzlesView({
     );
   }
 
-  // Puzzles Home (5 Worlds / 50-level Winding Path)
-  const coachLine =
-    streak >= 3
-      ? `${streak}-day puzzle streak! Ready for Level ${currentPathLevel}?`
-      : puzzleStore.cleanStreak >= 3
-      ? `Hot hand! ${puzzleStore.cleanStreak} clean solves in a row.`
-      : "Tactics decide most club games. Spot the forcing move!";
+  const mistakeItemsHome = buildMistakesItems();
+  const currentWorld = PUZZLE_WORLDS.find(w => currentPathLevel >= w.minLevel && currentPathLevel <= w.maxLevel) ?? PUZZLE_WORLDS[0];
+  const currentRec = puzzleStore.levels[currentPathLevel];
+  const passedCount = Object.values(puzzleStore.levels).filter(l => l.passed).length;
 
-  return (
-    <div className="ct-page">
-      <header className="ct-page-header">
-        <div>
-          <div className="ct-eyebrow">TACTICS</div>
-          <h1>Puzzles</h1>
+  if (route.view === "levels") {
+    return (
+      <div className="ct-page">
+        <div className="ct-subpage-bar">
+          <button type="button" className="ct-icon-btn" onClick={() => setRoute({ view: "home" })}>
+            <ArrowLeft size={18} /> <span>Puzzles</span>
+          </button>
+          <h1>Levels</h1>
         </div>
-        <div className="ct-header-stats">
-          <div className="ct-stat-badge" title="Puzzle rating">
-            <Sparkles size={15} className="ct-accent-text" />
-            <strong className="mono-num">{puzzleStore.puzzleRating}</strong>
-          </div>
-          <div className="ct-stat-badge" title="Daily streak">
-            <Flame size={15} className={streak > 0 ? "ct-accent-text" : ""} />
-            <strong className="mono-num">{streak}</strong>
-          </div>
-          <div className="ct-stat-badge" title="Total XP">
-            <Trophy size={15} className="ct-accent-text" />
-            <strong className="mono-num">{puzzleStore.totalXp} XP</strong>
-          </div>
-        </div>
-      </header>
-
-      <div className="ct-puzzles-top-grid">
-        <CoachBubble
-          mascotId={settings.mascotId}
-          mood={streak > 0 ? "proud" : "ready"}
-          sideLabel={`Level ${levelInfo.level}`}
-          message={coachLine}
-        >
-          <div className="ct-xp-inline">
-            <div className="ct-progress-track">
-              <div className="ct-progress-fill" style={{ width: `${Math.round(levelInfo.progress * 100)}%` }} />
-            </div>
-            <small className="mono-num ct-muted">
-              {levelInfo.xpIntoLevel}/{levelInfo.xpForNext} XP to Level {levelInfo.level + 1}
-            </small>
-          </div>
-        </CoachBubble>
-
-        <div className="ct-puzzles-cta-card">
-          <div className="ct-kicker">
-            Level {currentPathLevel} · ~{levelTargetRating(currentPathLevel)} rating
-          </div>
-          <p className="ct-muted">
-            Solve {PUZZLES_TO_PASS_LEVEL} of {PUZZLES_PER_LEVEL} puzzles to unlock the next node.
-          </p>
-          <div className="ct-btn-row">
-            <button
-              type="button"
-              className="ct-btn ct-btn-primary"
-              disabled={puzzlePack.isEmpty}
-              onClick={() => startLevel(currentPathLevel)}
-            >
-              <Play size={16} /> Solve Level {currentPathLevel}
-            </button>
-            <button type="button" className="ct-btn ct-btn-secondary" onClick={() => setRoute({ view: "modes" })}>
-              <Grid size={16} /> Modes
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 5 Worlds / 50-Level Winding Path */}
+        <p className="ct-muted">{passedCount} of {PUZZLE_LEVEL_COUNT} passed</p>
       <section className="ct-section">
         <div className="ct-section-head">
           <h2>50-Level Tactical Path</h2>
@@ -474,6 +428,79 @@ export function PuzzlesView({
           })}
         </div>
       </section>
+    </div>
+  );
+}
+
+  return (
+    <div className="ct2-page">
+      <ScreenTitle title="Puzzles">
+        <span className="ct2-big-figure" aria-label={`Puzzle rating ${puzzleStore.puzzleRating}`}>
+          {puzzleStore.puzzleRating}
+        </span>
+      </ScreenTitle>
+      <div className="ct2-gutter" style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 16 }}>
+        <div className="ct2-enter">
+          <HeroCard
+            kicker={`${currentWorld.title}, world ${currentWorld.number}`}
+            title={`Level ${currentPathLevel}`}
+            subtitle={
+              currentRec?.bestScore
+                ? `Best ${currentRec.bestScore} of ${PUZZLES_PER_LEVEL}`
+                : `Solve ${PUZZLES_TO_PASS_LEVEL} of ${PUZZLES_PER_LEVEL} to pass`
+            }
+            onClick={() => startLevel(currentPathLevel)}
+            ariaLabel={`Play level ${currentPathLevel}`}
+            picture={
+              <BoardPicture fen={BOARD_SCENES.OPENING} boardThemeId={settings.boardThemeId} pieceSet={settings.pieceSetId} aspect={3} />
+            }
+          />
+        </div>
+        <div className="ct2-tile-row ct2-enter" style={{ animationDelay: "60ms" }}>
+          <PictureTile
+            title="Daily puzzle"
+            subtitle={todaySolvedDaily ? "Solved today" : "Waiting for you"}
+            onClick={() =>
+              dailyPuzzle &&
+              setRoute({ view: "player", config: { kind: "daily", puzzles: [dailyPuzzle], title: "Daily puzzle" } })
+            }
+            ariaLabel="Open the daily puzzle"
+            trailing={todaySolvedDaily ? <TickMark /> : undefined}
+            picture={
+              <BoardPicture
+                fen={dailyPuzzle?.fen}
+                boardThemeId={settings.boardThemeId}
+                pieceSet={settings.pieceSetId}
+                whiteAtBottom={dailyPuzzle ? dailyPuzzle.fen.split(" ")[1] === "b" : true}
+                aspect={1.1}
+              />
+            }
+          />
+          <PictureTile
+            title="Mistakes to fix"
+            subtitle={dueReviewCount > 0 ? `${dueReviewCount} due today` : "From your games"}
+            onClick={() =>
+              mistakeItemsHome.length
+                ? setRoute({ view: "player", config: { kind: "mistakes", items: mistakeItemsHome, title: "Mistakes review" } })
+                : setRoute({ view: "modes" })
+            }
+            ariaLabel="Review the mistakes from your games"
+            picture={
+              <BoardPicture fen={BOARD_SCENES.ATTACK} boardThemeId={settings.boardThemeId} pieceSet={settings.pieceSetId} aspect={1.1} />
+            }
+          />
+        </div>
+        <SectionHeader title="More" />
+        <div>
+          <ListRow title="Puzzle modes" subtitle="Rush, by theme, custom" icon="tune" onClick={() => setRoute({ view: "modes" })} />
+          <ListRow
+            title="All levels"
+            subtitle={`${passedCount} of ${PUZZLE_LEVEL_COUNT} passed`}
+            icon="map"
+            onClick={() => setRoute({ view: "levels" })}
+          />
+        </div>
+      </div>
     </div>
   );
 }

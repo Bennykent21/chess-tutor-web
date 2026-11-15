@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
 import {
   ArrowLeft,
@@ -70,6 +70,7 @@ import {
   importAllLocalData
 } from "../lib/storage";
 import { BoardArrow, BoardHost } from "../components/BoardHost";
+import { ScreenTitle, SectionHeader, Streak } from "../components/ct";
 
 export type AccountSubRoute =
   | { view: "overview" }
@@ -137,6 +138,7 @@ export function AccountView({
   const levelInfo = playerLevelFromXp(puzzleStore.totalXp);
   const rank = ratingRankOf(effectiveRating);
   const [showRankLadder, setShowRankLadder] = useState(false);
+  const [openBadgeId, setOpenBadgeId] = useState<string | null>(null);
 
   const { lessonsDone, lessonsTotal } = useMemo(() => {
     let total = 0;
@@ -269,127 +271,116 @@ export function AccountView({
     classical: linkedAccounts.find(a => a.ratings.classical)?.ratings.classical
   };
 
+  const linked = linkedAccounts[0];
+  const displayName = settings.playerName.trim();
+  const heroTitle = displayName || (linked ? `@${linked.username}` : "You");
+  const platformLabel = linked ? (linked.platform === "lichess" ? "Lichess" : "Chess.com") : "";
+  const heroDetail = linked ? (displayName ? `@${linked.username} · ${platformLabel}` : platformLabel) : null;
+  const ratingCells: { value: string; label: string; icon: string; onClick: () => void }[] = [
+    ...(linked
+      ? (["rapid", "blitz", "bullet"] as const).map(clock => ({
+          value: mergedRatings[clock] ? String(mergedRatings[clock]) : "–",
+          label: clock[0].toUpperCase() + clock.slice(1),
+          icon: `/assets/art/icon_clock_${clock}.webp`,
+          onClick: () => setRoute({ view: "performance", initialClock: clock })
+        }))
+      : [
+          {
+            value: String(effectiveRating),
+            label: "Rating",
+            icon: "/assets/art/icon_clock_rapid.webp",
+            onClick: () => setRoute({ view: "performance" })
+          }
+        ]),
+    {
+      value: String(puzzleStore.puzzleRating),
+      label: "Puzzles",
+      icon: "/assets/art/icon_extension.webp",
+      onClick: () => setRoute({ view: "training" })
+    }
+  ];
+  const openBadge = badges.find(b => b.id === openBadgeId);
+
   return (
-    <div className="ct-page">
-      <header className="ct-page-header">
-        <div>
-          <div className="ct-eyebrow">PROFILE</div>
-          <h1>Account</h1>
-        </div>
-        <button type="button" className="ct-btn ct-btn-secondary" onClick={() => setRoute({ view: "settings" })}>
-          <Settings size={16} /> Settings
+    <div className="ct2-page" style={{ gap: 0 }}>
+      <ScreenTitle title="Account">
+        <Streak days={streak} />
+        <button
+          type="button"
+          className="ct2-icon-btn ct2-icon-btn-filled"
+          aria-label="Settings"
+          onClick={() => setRoute({ view: "settings" })}
+        >
+          <Settings size={20} />
         </button>
-      </header>
+      </ScreenTitle>
 
-      {/* Sub-navigation Strip */}
-      <div className="ct-chip-wrap" style={{ marginBottom: 18 }}>
-        <button type="button" className="ct-chip-btn is-active" onClick={() => setRoute({ view: "overview" })}>
-          Overview
-        </button>
-        <button type="button" className="ct-chip-btn" onClick={() => setRoute({ view: "games" })}>
-          Games ({allGames.length})
-        </button>
-        <button type="button" className="ct-chip-btn" onClick={() => setRoute({ view: "performance" })}>
-          Performance
-        </button>
-        <button type="button" className="ct-chip-btn" onClick={() => setRoute({ view: "training" })}>
-          Training
-        </button>
-      </div>
-
-      {/* Hero Card with 3D Rank Piece */}
-      <div className="ct-hero-card">
-        <div className="ct-hero-copy">
-          <div className="ct-kicker">
-            Level {levelInfo.level} · {rank.label} Rank
-          </div>
-          <h2>{settings.playerName || "Chess Learner"}</h2>
-          <div className="ct-badge-row">
-            <span className="ct-pill-tag mono-num">Rating {effectiveRating}</span>
-            <span className="ct-pill-tag mono-num">
-              <Flame size={13} className="ct-accent-text" /> {streak} day streak
-            </span>
-            <span className="ct-pill-tag mono-num">{puzzleStore.totalXp} XP</span>
-          </div>
-          <div className="ct-btn-row" style={{ marginTop: 10 }}>
-            <button type="button" className="ct-btn ct-btn-secondary" onClick={() => setShowRankLadder(s => !s)}>
-              <Trophy size={15} /> {showRankLadder ? "Hide Rank Ladder" : "Rank Ladder"}
-            </button>
-          </div>
-        </div>
+      <button
+        type="button"
+        className="ct2-account-hero"
+        aria-label={`Your piece: ${rank.label}`}
+        onClick={() => setShowRankLadder(true)}
+      >
         <img
           src={isDarkAppearance ? rank.artNight : rank.artDay}
-          alt={rank.label}
-          className="ct-hero-bot-img"
+          alt=""
+          className={`ct2-account-hero-art ct2-swell ${isDarkAppearance ? "is-night" : "is-day"}`}
         />
+        <div className="ct2-account-hero-fade" />
+        <div className="ct2-player-row">
+          <PlayerAvatar picture={settings.playerPicture} name={displayName || linked?.username || ""} />
+          <div className="ct2-player-text">
+            <strong>{heroTitle}</strong>
+            {heroDetail ? <small>{heroDetail}</small> : null}
+          </div>
+        </div>
+      </button>
+
+      <div className="ct2-gutter" style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 8 }}>
+        <div className="ct2-figures">
+          {ratingCells.map((cell, i) => (
+            <Fragment key={cell.label}>
+              {i > 0 ? <span className="ct2-figure-rule" aria-hidden="true" /> : null}
+              <button type="button" className="ct2-figure" onClick={cell.onClick}>
+                <img src={cell.icon} alt="" width={22} height={22} />
+                <strong>{cell.value}</strong>
+                <small>{cell.label}</small>
+              </button>
+            </Fragment>
+          ))}
+        </div>
+        <div className="ct2-level-row">
+          <strong>Level {levelInfo.level}</strong>
+          <div className="ct2-thin-track">
+            <div style={{ width: `${Math.round(levelInfo.progress * 100)}%` }} />
+          </div>
+          <small>{puzzleStore.totalXp.toLocaleString("en-GB")} XP</small>
+        </div>
       </div>
 
-      {showRankLadder && (
-        <div className="ct-card ct-section">
-          <div className="ct-card-head">
-            <strong>Rank Ladder</strong>
-            <small className="ct-muted">Based on your active rating ({effectiveRating})</small>
-          </div>
-          <div className="ct-rank-ladder">
-            {RATING_RANKS.map(r => (
-              <div key={r.id} className={`ct-rank-item ${r.id === rank.id ? "is-current" : ""}`}>
-                <img src={isDarkAppearance ? r.artNight : r.artDay} alt={r.label} />
-                <strong>{r.label}</strong>
-                <small className="mono-num">{r.from}+</small>
-              </div>
-            ))}
-          </div>
+      {linkedAccounts.length === 0 ? (
+        <div className="ct2-gutter" style={{ marginTop: 16 }}>
+          <LinkedAccountsCard
+            linkedAccounts={linkedAccounts}
+            onLinkImported={onLinkImportedAccount}
+            onRemove={onRemoveLinkedAccount}
+          />
         </div>
-      )}
+      ) : null}
 
-      {/* Linked Chess.com / Lichess Accounts */}
-      <LinkedAccountsCard
-        linkedAccounts={linkedAccounts}
-        onLinkImported={onLinkImportedAccount}
-        onRemove={onRemoveLinkedAccount}
-      />
-
-      {/* Rating Cards */}
-      <section className="ct-section">
-        <h2>Ratings</h2>
-        <div className="ct-stats-4grid">
-          {(["rapid", "blitz", "bullet", "classical"] as const).map(clock => (
-            <button
-              key={clock}
-              type="button"
-              className="ct-stat-tile"
-              onClick={() => setRoute({ view: "performance", initialClock: clock })}
-            >
-              <small className="ct-kicker">{clock}</small>
-              <strong className="mono-num">{mergedRatings[clock] ?? "—"}</strong>
-              <span className="ct-muted">View stats</span>
-            </button>
-          ))}
-          <button type="button" className="ct-stat-tile" onClick={() => setRoute({ view: "training" })}>
-            <small className="ct-kicker">Puzzles</small>
-            <strong className="mono-num">{puzzleStore.puzzleRating}</strong>
-            <span className="ct-muted">{puzzleStore.history.length} played</span>
-          </button>
-        </div>
-      </section>
-
-      {/* Recent Games Preview */}
-      <section className="ct-section">
-        <div className="ct-section-head">
-          <h2>Recent Games</h2>
-          <button type="button" className="ct-text-btn" onClick={() => setRoute({ view: "games" })}>
-            See all ({allGames.length}) <ChevronRight size={15} />
-          </button>
-        </div>
+      <div className="ct2-gutter" style={{ marginTop: 12 }}>
+        <SectionHeader
+          title="Recent games"
+          actionLabel={allGames.length ? "See all" : undefined}
+          onAction={() => setRoute({ view: "games" })}
+        />
         {allGames.length === 0 ? (
-          <div className="ct-card">
-            <p className="ct-muted">
-              Play a bot on Home or link a Chess.com / Lichess account above to review your games with Stockfish.
-            </p>
-          </div>
+          <p className="ct2-caption" style={{ padding: "8px 0 16px" }}>
+            No games yet. Play a bot on Home, or link Chess.com or Lichess to bring in your games.
+          </p>
         ) : (
-          <div className="ct-game-list">
-            {allGames.slice(0, 4).map(g => (
+          <div>
+            {allGames.slice(0, 3).map(g => (
               <GameRow
                 key={g.id}
                 game={g}
@@ -399,34 +390,99 @@ export function AccountView({
             ))}
           </div>
         )}
-      </section>
+      </div>
 
-      {/* 16 Achievement Badges */}
-      <section className="ct-section">
-        <div className="ct-section-head">
-          <h2>Badges</h2>
-          <span className="mono-num ct-muted">
-            {badges.filter(b => b.earned).length}/{badges.length} earned
-          </span>
+      {badges.length ? (
+        <div style={{ marginTop: 8 }}>
+          <div className="ct2-gutter">
+            <SectionHeader title="Badges" />
+          </div>
+          <div className="ct2-badge-strip">
+            {badges.map(b => (
+              <button
+                key={b.id}
+                type="button"
+                className={`ct2-badge ${b.earned ? "is-earned" : ""}`}
+                onClick={() => setOpenBadgeId(b.id)}
+              >
+                <img src={b.medalArt} alt="" />
+                <small>{b.title}</small>
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="ct-badges-grid">
-          {badges.map(b => (
-            <div key={b.id} className={`ct-badge-card ${b.earned ? "is-earned" : "is-locked"}`}>
-              <img src={b.medalArt} alt={b.title} className="ct-badge-medal" />
-              <div className="ct-badge-body">
-                <strong>{b.title}</strong>
-                <small className="ct-muted">{b.detail}</small>
-                <div className="ct-progress-track">
-                  <div
-                    className="ct-progress-fill"
-                    style={{ width: `${Math.round((b.progress / Math.max(1, b.goal)) * 100)}%` }}
-                  />
-                </div>
-              </div>
+      ) : null}
+
+      {linkedAccounts.length > 0 ? (
+        <div className="ct2-gutter" style={{ marginTop: 16 }}>
+          <LinkedAccountsCard
+            linkedAccounts={linkedAccounts}
+            onLinkImported={onLinkImportedAccount}
+            onRemove={onRemoveLinkedAccount}
+          />
+        </div>
+      ) : null}
+
+      {showRankLadder ? (
+        <Sheet title="Your piece" onClose={() => setShowRankLadder(false)}>
+          {[...RATING_RANKS].reverse().map(r => (
+            <div key={r.id} className={`ct2-rank-row ${r.from <= rank.from ? "" : "is-dim"}`}>
+              <img
+                src={isDarkAppearance ? r.artNight : r.artDay}
+                alt=""
+                className={isDarkAppearance ? "is-night" : "is-day"}
+              />
+              <strong className={r.id === rank.id ? "is-current" : ""}>{r.label}</strong>
+              <small>{r.from === 0 ? "Start" : r.from}</small>
             </div>
           ))}
-        </div>
-      </section>
+        </Sheet>
+      ) : null}
+
+      {openBadge ? (
+        <Sheet title={openBadge.title} onClose={() => setOpenBadgeId(null)}>
+          <div className="ct2-badge-detail">
+            <img src={openBadge.medalArt} alt="" className={openBadge.earned ? "" : "is-dim"} />
+            <p>{openBadge.detail}</p>
+            <div className="ct2-thin-track">
+              <div style={{ width: `${Math.round((openBadge.progress / Math.max(1, openBadge.goal)) * 100)}%` }} />
+            </div>
+            <small className="ct2-caption">
+              {openBadge.earned ? "Earned" : `${openBadge.progress} of ${openBadge.goal}`}
+            </small>
+          </div>
+        </Sheet>
+      ) : null}
+    </div>
+  );
+}
+
+/** The player's picture: a bot face or coach they chose, or their initial. */
+function PlayerAvatar({ picture, name }: { picture: string; name: string }) {
+  let src: string | null = null;
+  if (picture.startsWith("face:")) src = `/assets/bots/${picture.slice(5)}.svg`;
+  else if (picture.startsWith("coach:")) src = `/assets/mascot/${picture.slice(6)}_ready.svg`;
+  return (
+    <span className="ct2-avatar">
+      {src ? <img src={src} alt="" /> : <span>{(name.trim()[0] ?? "?").toUpperCase()}</span>}
+    </span>
+  );
+}
+
+/** A sheet rising from the bottom (the app's CtSheet). */
+function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="ct2-sheet-scrim" onClick={onClose}>
+      <div className="ct2-sheet" role="dialog" aria-label={title} onClick={e => e.stopPropagation()}>
+        <div className="ct2-sheet-handle" aria-hidden="true" />
+        <h2>{title}</h2>
+        <div className="ct2-sheet-body">{children}</div>
+      </div>
     </div>
   );
 }
@@ -626,23 +682,24 @@ function GameRow({
 }) {
   const playerSide = game.playerColor ?? "w";
   const acc = report ? (playerSide === "w" ? report.whiteAccuracy : report.blackAccuracy) : game.accuracy ?? null;
+  const result = game.result.toLowerCase();
+  const word = result === "win" ? "Won" : result === "loss" ? "Lost" : "Drew";
 
   return (
-    <button type="button" className="ct-game-row" onClick={onClick}>
-      <span className={`ct-result-pill is-${game.result.toLowerCase()}`}>{game.result}</span>
-      <div className="ct-game-row-main">
-        <div className="ct-game-row-top">
-          <strong>vs {game.opponent}</strong>
-          <span className="mono-num ct-muted">({game.rating})</span>
-          <span className="ct-pill-tag">{game.source ?? "arena"}</span>
-        </div>
-        <small className="ct-muted">
-          {game.eco ? `${game.eco} · ` : ""}
-          {game.opening} · {game.moves} moves · {game.date}
+    <button type="button" className="ct2-game-row" onClick={onClick}>
+      <span className={`ct2-result is-${result}`} aria-hidden="true">
+        {result === "win" ? "+" : result === "loss" ? "−" : "="}
+      </span>
+      <span className="ct2-game-text">
+        <strong>
+          {word} vs {game.opponent} <span className="ct2-game-rating">{game.rating}</span>
+        </strong>
+        <small>
+          {game.opening || "Game"} · {game.moves} moves · {game.date}
         </small>
-      </div>
-      {acc !== null && <span className="ct-acc-badge mono-num">{acc}%</span>}
-      <ChevronRight size={17} />
+      </span>
+      {acc !== null && <span className="ct2-game-acc">{acc}%</span>}
+      <ChevronRight size={20} className="ct2-list-chevron" />
     </button>
   );
 }

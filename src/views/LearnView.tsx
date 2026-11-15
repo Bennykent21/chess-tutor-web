@@ -31,6 +31,7 @@ import { parseUci, uciToSan } from "../lib/chessUtils";
 import { AppSettings } from "../lib/storage";
 import { BoardArrow, BoardHighlight, BoardHost } from "../components/BoardHost";
 import { CoachBubble } from "../components/CoachBubble";
+import { ArtTile, PlayMark, ScreenTitle, SectionHeader } from "../components/ct";
 
 export type LearnSubRoute =
   | { view: "hub" }
@@ -311,102 +312,72 @@ export function LearnView({
     );
   }
 
-  // Learn Hub
-  const overallPct = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+  // Learn hub (the app's LearnScreen): how far you are, the lesson to continue, the topics.
+  const openCategory = (id: LessonCategoryId) => {
+    setSearch("");
+    setDiffFilter("all");
+    setSideFilter("all");
+    setRoute({ view: "category", categoryId: id });
+  };
+  const continueCourseDone = continueInfo
+    ? continueInfo.course.lessons.filter(l => lessonProgress[l.id]?.completed).length
+    : 0;
 
   return (
-    <div className="ct-page">
-      <header className="ct-page-header">
-        <div>
-          <div className="ct-eyebrow">CURRICULUM</div>
-          <h1>Learn Chess</h1>
-        </div>
-        <div className="ct-header-stats">
-          <div className="ct-stat-badge">
-            <BookOpen size={16} className="ct-accent-text" />
-            <strong className="mono-num">
-              {completedLessons}/{totalLessons}
-            </strong>
-            <span className="ct-muted">lessons</span>
-          </div>
-        </div>
-      </header>
-
-      <div className="ct-card ct-learn-overall">
-        <div className="ct-card-head">
-          <strong>Course Mastery</strong>
-          <span className="mono-num">{overallPct}% complete</span>
-        </div>
-        <div className="ct-progress-track">
-          <div className="ct-progress-fill" style={{ width: `${overallPct}%` }} />
-        </div>
-        {continueInfo && (
-          <div className="ct-continue-inline">
-            <div>
-              <small className="ct-kicker">{continueInfo.started ? "Continue lesson" : "Recommended next"}</small>
-              <div>
-                <strong>{continueInfo.course.title}</strong> · {continueInfo.lesson.title}
-              </div>
-            </div>
-            <button
-              type="button"
-              className="ct-btn ct-btn-primary"
+    <div className="ct2-page" style={{ gap: 0 }}>
+      <ScreenTitle title="Learn" />
+      <p className="ct2-caption ct2-gutter">
+        {completedLessons} of {totalLessons} lessons
+      </p>
+      <div className="ct2-gutter">
+        {continueInfo ? (
+          <div className="ct2-enter" style={{ marginTop: 16 }}>
+            <ArtTile
+              dark={isDarkAppearance}
+              scene={continueInfo.course.category}
+              className="ct2-hero"
+              kicker={continueInfo.course.title}
+              title={continueInfo.lesson.title}
+              big
+              subtitle={`Lesson ${continueInfo.number} of ${continueInfo.total}`}
+              progress={continueCourseDone / Math.max(1, continueInfo.course.lessons.length)}
+              lift={0.3}
+              ariaLabel={`${continueInfo.started ? "Continue" : "Start"} ${continueInfo.lesson.title}`}
               onClick={() => setRoute({ view: "lesson", course: continueInfo.course, lessonId: continueInfo.lesson.id })}
-            >
-              <Play size={16} /> {continueInfo.started ? "Resume" : "Start"}
-            </button>
+              trailing={<PlayMark onArt />}
+            />
           </div>
-        )}
-      </div>
-
-      <section className="ct-section">
-        <h2>Choose a subject</h2>
-        <div className="ct-learn-cat-grid">
+        ) : null}
+        <div style={{ marginTop: 12 }}>
+          <SectionHeader title="Topics" />
+        </div>
+        <div className="ct2-topic-grid ct2-enter" style={{ animationDelay: "60ms" }}>
           {LESSON_CATEGORIES.map(cat => {
-            const catCourses = courses.filter(c => c.category === cat.id);
             let catTotal = 0;
             let catDone = 0;
-            for (const c of catCourses) {
+            for (const c of courses) {
+              if (c.category !== cat.id) continue;
               for (const l of c.lessons) {
                 catTotal++;
                 if (lessonProgress[l.id]?.completed) catDone++;
               }
             }
-            const pct = catTotal > 0 ? Math.round((catDone / catTotal) * 100) : 0;
+            const available = catTotal > 0;
             return (
-              <button
+              <ArtTile
                 key={cat.id}
-                type="button"
-                className="ct-learn-cat-card"
-                onClick={() => {
-                  setSearch("");
-                  setDiffFilter("all");
-                  setSideFilter("all");
-                  setRoute({ view: "category", categoryId: cat.id });
-                }}
-              >
-                <img
-                  src={isDarkAppearance ? cat.artNight : cat.artDay}
-                  alt={cat.title}
-                  className="ct-learn-cat-art"
-                />
-                <div className="ct-learn-cat-body">
-                  <div className="ct-learn-cat-top">
-                    <h3>{cat.title}</h3>
-                    <span className="mono-num ct-muted">
-                      {catDone}/{catTotal}
-                    </span>
-                  </div>
-                  <p className="ct-muted">{cat.subtitle}</p>
-                  <div className="ct-progress-track">
-                    <div className="ct-progress-fill" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              </button>
+                dark={isDarkAppearance}
+                scene={cat.id}
+                title={cat.title}
+                subtitle={available ? `${catDone} of ${catTotal}` : "Lessons on the way"}
+                progress={available ? catDone / catTotal : undefined}
+                ariaLabel={`Open ${cat.title}`}
+                onClick={available ? () => openCategory(cat.id) : undefined}
+              />
             );
           })}
         </div>
-      </section>
+      </div>
     </div>
   );
 }
