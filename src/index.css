@@ -4913,3 +4913,29 @@ button.ct-action-tile:active,
   bottom: 0;
   padding-bottom: calc(16px + env(safe-area-inset-bottom));
 }
+
+.ct2-credit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.ct2-credit strong {
+  font-size: 16px;
+}
+
+.ct2-credit small,
+.ct2-credit a {
+  font-size: 13px;
+  color: var(--text2);
+}
+
+.ct2-credit a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  text-decoration: none;
+}

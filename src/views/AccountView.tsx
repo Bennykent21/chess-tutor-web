@@ -2060,59 +2060,60 @@ const SETTINGS_SECTIONS: { id: SettingsSection; title: string; icon: MetalIconId
   { id: "about", title: "About", icon: "info" }
 ];
 
+/** Every part the site ships, its author and its licence (the app's LicencesScreen). */
+const CREDITS: { name: string; by: string; licence: string; text?: string }[] = [
+  { name: "Chess Tutor", by: "Oghosa Benedict", licence: "GPL-3.0", text: "GPL-3.0.txt" },
+  { name: "Stockfish 19 (WebAssembly)", by: "The Stockfish developers; Stockfish.js by Nathan Rugg and Chess.com", licence: "GPL-3.0", text: "GPL-3.0.txt" },
+  { name: "chess.js", by: "Jeff Hlywa", licence: "BSD-2-Clause" },
+  { name: "React", by: "Meta Platforms", licence: "MIT" },
+  { name: "Lucide icons", by: "Lucide contributors", licence: "ISC" },
+  { name: "Puzzles and opening explorer data", by: "Lichess (lichess.org)", licence: "CC0 1.0" },
+  { name: "Opening names", by: "lichess-org/chess-openings", licence: "CC0 1.0" },
+  { name: "Classic (cburnett) pieces", by: "Colin M.L. Burnett", licence: "GPLv2 or later, used under GPL-3.0", text: "GPL-3.0.txt" },
+  { name: "Merida pieces", by: "Armando Hernandez Marroquin", licence: "GPLv2 or later, used under GPL-3.0", text: "GPL-3.0.txt" },
+  { name: "Chessnut pieces", by: "Alexis Luengas", licence: "Apache-2.0", text: "Apache-2.0.txt" },
+  { name: "Fantasy pieces", by: "Maurizio Monge", licence: "MIT", text: "MIT-fantasy-pieces.txt" },
+  { name: "Chess set model and lighting", by: "Riley Queen and Poly Haven (polyhaven.com)", licence: "CC0 1.0" },
+  { name: "Icon shapes", by: "Google (Material Symbols)", licence: "Apache-2.0", text: "Apache-2.0.txt" },
+  { name: "Sounds", by: "Kenney (kenney.nl)", licence: "CC0 1.0" },
+  { name: "Inter, Schibsted Grotesk and JetBrains Mono", by: "Their project authors", licence: "SIL Open Font License 1.1", text: "OFL-1.1.txt" }
+];
+
 function LicencesPage({ onBack }: { onBack: () => void }) {
   return (
     <div className="ct-page">
-      <div className="ct-subpage-bar">
-        <button type="button" className="ct-icon-btn" onClick={onBack}>
-          <ArrowLeft size={18} /> <span>Settings</span>
+      <header className="ct2-board-topbar" style={{ margin: "0 -20px 8px" }}>
+        <button type="button" className="ct2-icon-btn" aria-label="Back" onClick={onBack}>
+          <ArrowLeft size={22} />
         </button>
-        <h1>Open-Source Licences</h1>
+        <h1>Open-source licences</h1>
+        <span style={{ width: 40 }} />
+      </header>
+      <p className="ct2-caption" style={{ marginBottom: 8 }}>
+        Chess Tutor is free software under the GNU General Public License v3.0. It stands on the open work below.
+      </p>
+      <div>
+        {CREDITS.map(c => (
+          <div key={c.name} className="ct2-credit">
+            <strong>{c.name}</strong>
+            <small>{c.by}</small>
+            {c.text ? (
+              <a href={`/assets/licenses/${c.text}`} target="_blank" rel="noreferrer">
+                {c.licence} <ExternalLink size={12} />
+              </a>
+            ) : (
+              <small>{c.licence}</small>
+            )}
+          </div>
+        ))}
       </div>
-
-      <div className="ct-card ct-licenses-list">
-        <p className="ct-muted">
-          Chess Tutor ships Stockfish 19 WASM (GPL-3.0) and open-source datasets, chess pieces, fonts, and audio assets.
-        </p>
-        <div className="ct-licence-item">
-          <strong>Stockfish 19 (WASM)</strong>
-          <small className="ct-muted">GPL-3.0 · Stockfish contributors</small>
-        </div>
-        <div className="ct-licence-item">
-          <strong>chess.js</strong>
-          <small className="ct-muted">BSD-2-Clause · Jeff Hlywa</small>
-        </div>
-        <div className="ct-licence-item">
-          <strong>Lichess Puzzle Database &amp; Openings (ECO)</strong>
-          <small className="ct-muted">CC0 1.0 Public Domain · Lichess.org</small>
-        </div>
-        <div className="ct-licence-item">
-          <strong>Piece Sets</strong>
-          <small className="ct-muted">
-            cburnett &amp; Merida (GPLv2+), Chessnut (Apache-2.0), Fantasy (MIT)
-          </small>
-        </div>
-        <div className="ct-licence-item">
-          <strong>Fonts</strong>
-          <small className="ct-muted">
-            Schibsted Grotesk, Inter, JetBrains Mono (SIL Open Font License 1.1)
-          </small>
-        </div>
-        <div className="ct-licence-item">
-          <strong>Sound Effects</strong>
-          <small className="ct-muted">Kenney Audio Packs (CC0 1.0)</small>
-        </div>
-        <div className="ct-btn-row" style={{ marginTop: 12 }}>
-          <a
-            href="/assets/licenses/GPL-3.0.txt"
-            target="_blank"
-            rel="noreferrer"
-            className="ct-btn ct-btn-secondary"
-          >
-            <ExternalLink size={15} /> Read GPL-3.0 Notice
-          </a>
-        </div>
-      </div>
+      <p className="ct2-caption" style={{ marginTop: 16 }}>
+        The source code and the full list of bundled parts are at{" "}
+        <a href="https://github.com/Bennykent21/chess-tutor-web" target="_blank" rel="noreferrer">
+          github.com/Bennykent21/chess-tutor-web
+        </a>
+        .
+      </p>
     </div>
   );
 }
