@@ -140,6 +140,12 @@ export default function App() {
     return puzzleStore.puzzleRating || 1000;
   }, [linkedAccounts, onboarding, puzzleStore.puzzleRating]);
 
+  const allGamesForTrain = useMemo(() => {
+    const byId = new Map<string, TutorGameRecord>();
+    for (const g of [...localGames, ...importedGames]) if (g.id && !byId.has(g.id)) byId.set(g.id, g);
+    return [...byId.values()];
+  }, [localGames, importedGames]);
+
   const dueMistakesCount = useMemo(() => countDueReviews(reviewSchedule), [reviewSchedule]);
 
   const updateSettings = (patch: Partial<AppSettings>) => {
@@ -545,6 +551,8 @@ export default function App() {
             store={trainStore}
             onUpdateStore={handleUpdateTrainStore}
             effectiveRating={effectiveRating}
+            games={allGamesForTrain}
+            reviews={analysedMap}
             onOpenBattle={openingName => {
               setActiveTab("home");
               setHomeRoute({ view: "battle", presetOpeningName: openingName });
