@@ -70,7 +70,7 @@ import {
   importAllLocalData
 } from "../lib/storage";
 import { BoardArrow, BoardHost } from "../components/BoardHost";
-import { ScreenTitle, SectionHeader, Streak } from "../components/ct";
+import { ListRow, MetalIconId, ScreenTitle, SectionHeader, Streak } from "../components/ct";
 
 export type AccountSubRoute =
   | { view: "overview" }
@@ -1654,31 +1654,55 @@ function SettingsPage({
     URL.revokeObjectURL(url);
   };
 
+  const [page, setPage] = useState<SettingsSection | null>(null);
+  const theme = APP_THEMES.find(t => t.id === settings.appTheme);
+  const summary: Record<SettingsSection, string | undefined> = {
+    appearance: theme?.label,
+    profile: settings.playerName.trim() || undefined,
+    play: settings.soundEnabled ? "Sound on" : "Sound off",
+    engine: settings.reviewDepth === "fast" ? "Fast reviews" : settings.reviewDepth === "deep" ? "Deep reviews" : undefined,
+    data: "Kept in this browser",
+    about: "Licences"
+  };
+
+  if (page === null) {
+    return (
+      <div className="ct2-page" style={{ gap: 0 }}>
+        <div className="ct2-back-bar">
+          <button type="button" className="ct2-icon-btn" aria-label="Back" onClick={onBack}>
+            <ArrowLeft size={22} />
+          </button>
+        </div>
+        <ScreenTitle title="Settings" />
+        <div className="ct2-gutter ct2-enter">
+          {SETTINGS_SECTIONS.map(section => (
+            <ListRow
+              key={section.id}
+              title={section.title}
+              subtitle={summary[section.id]}
+              icon={section.icon}
+              onClick={() => setPage(section.id)}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const title = SETTINGS_SECTIONS.find(x => x.id === page)!.title;
   return (
     <div className="ct-page">
-      <div className="ct-subpage-bar">
-        <button type="button" className="ct-icon-btn" onClick={onBack}>
-          <ArrowLeft size={18} /> <span>Account</span>
+      <header className="ct2-board-topbar" style={{ margin: "0 -20px 8px" }}>
+        <button type="button" className="ct2-icon-btn" aria-label="Back to settings" onClick={() => setPage(null)}>
+          <ArrowLeft size={22} />
         </button>
-        <h1>Settings</h1>
-      </div>
+        <h1>{title}</h1>
+        <span style={{ width: 40 }} />
+      </header>
 
-      <div className="ct-settings-grid">
-        {/* Profile */}
-        <div className="ct-card">
-          <h2>Profile</h2>
-          <label className="ct-field">
-            <span>Display Name</span>
-            <input
-              type="text"
-              maxLength={24}
-              value={settings.playerName}
-              placeholder="Player"
-              onChange={e => onUpdateSettings({ playerName: e.target.value })}
-            />
-          </label>
-        </div>
-
+      <div className="ct-settings-grid ct2-enter">
+        {page === "appearance" ? (
+          <>
         {/* Look & Theme */}
         <div className="ct-card">
           <h2>App Theme &amp; Appearance</h2>
@@ -1821,6 +1845,24 @@ function SettingsPage({
           </div>
         </div>
 
+          </>
+        ) : page === "profile" ? (
+          <>
+        {/* Profile */}
+        <div className="ct-card">
+          <h2>Profile</h2>
+          <label className="ct-field">
+            <span>Display Name</span>
+            <input
+              type="text"
+              maxLength={24}
+              value={settings.playerName}
+              placeholder="Player"
+              onChange={e => onUpdateSettings({ playerName: e.target.value })}
+            />
+          </label>
+        </div>
+
         {/* Mascot, Audio, Bot Chat, Engine */}
         <div className="ct-card">
           <h2>Coach Mascot</h2>
@@ -1840,6 +1882,9 @@ function SettingsPage({
           </div>
         </div>
 
+          </>
+        ) : page === "play" ? (
+          <>
         <div className="ct-card">
           <h2>Sound, Chat &amp; Analysis</h2>
           <div className="ct-toggle-list">
@@ -1877,6 +1922,12 @@ function SettingsPage({
             </div>
           </div>
 
+        </div>
+
+          </>
+        ) : page === "engine" ? (
+          <>
+        <div className="ct-card">
           <div className="ct-control-group">
             <label>Game review depth</label>
             <div className="ct-segmented">
@@ -1893,7 +1944,6 @@ function SettingsPage({
             </div>
           </div>
         </div>
-
         {/* Engine Diagnostics */}
         <div className="ct-card">
           <h2>Stockfish 19 Engine Health</h2>
@@ -1918,6 +1968,9 @@ function SettingsPage({
           )}
         </div>
 
+          </>
+        ) : page === "data" ? (
+          <>
         {/* Local Data Backup & Licences */}
         <div className="ct-card">
           <h2>Local Backup &amp; Legal</h2>
@@ -1976,10 +2029,36 @@ function SettingsPage({
             )}
           </div>
         </div>
+          </>
+        ) : (
+          <div className="ct-card">
+            <h2>Chess Tutor for the web</h2>
+            <p className="ct-muted">
+              Everything runs in your browser: Stockfish 19, the lessons, puzzles and openings. Nothing is sent to a server of
+              ours.
+            </p>
+            <div className="ct-btn-row">
+              <button type="button" className="ct-btn ct-btn-secondary" onClick={onOpenLicences}>
+                Open-source licences
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
+type SettingsSection = "appearance" | "profile" | "play" | "engine" | "data" | "about";
+
+const SETTINGS_SECTIONS: { id: SettingsSection; title: string; icon: MetalIconId }[] = [
+  { id: "appearance", title: "Appearance", icon: "palette" },
+  { id: "profile", title: "Profile", icon: "person" },
+  { id: "play", title: "Sound and play", icon: "volume_up" },
+  { id: "engine", title: "Engine", icon: "memory" },
+  { id: "data", title: "Your data", icon: "storage" },
+  { id: "about", title: "About", icon: "info" }
+];
 
 function LicencesPage({ onBack }: { onBack: () => void }) {
   return (
