@@ -55,6 +55,7 @@ import { analysePosition } from "../lib/engine";
 import { MyLine, endFen, freeName, lineBook, myLineBookId, sanLine } from "../domain/myLines";
 import { OpeningLine, OpeningTree } from "../domain/openings";
 import { generateUuid } from "../lib/storage";
+import type { LessonCourse } from "../domain/lessons";
 import type { GameReviewReport } from "../domain/account";
 import { ENDINGS, FindingGame, GameFinding, findingGameOf, gameFindings } from "../domain/gameFindings";
 
@@ -123,7 +124,9 @@ export function TrainView({
   onOpenBattle,
   games,
   reviews,
-  openingTree
+  openingTree,
+  courses,
+  onOpenCourse
 }: {
   route: TrainSubRoute;
   setRoute: (r: TrainSubRoute) => void;
@@ -134,6 +137,9 @@ export function TrainView({
   effectiveRating: number;
   onOpenBattle: (openingName?: string, line?: OpeningLine, side?: "w" | "b") => void;
   openingTree: OpeningTree;
+  /** The Learn courses, for each opening's ideas. */
+  courses: LessonCourse[];
+  onOpenCourse: (course: LessonCourse) => void;
   /** Every saved and imported game, for "From your games". */
   games: FindingSource[];
   reviews: Record<string, GameReviewReport>;
@@ -351,7 +357,12 @@ export function TrainView({
         isDark={isDark}
         onBack={() => setRoute({ view: "side", side: ui.book.side })}
         onRun={spec => setRoute({ view: "run", spec, back: route })}
-        onPlayOut={() => onOpenBattle(nodeAt(ui.book, fenAfter(ui.book.start))?.name ?? ui.book.title)}
+        ideas={courses.find(c => c.id === `openings-${ui.book.id}`) ?? null}
+        onOpenCourse={onOpenCourse}
+        onPlayOut={() => {
+          const course = courses.find(c => c.id === `openings-${ui.book.id}`);
+          onOpenBattle(course?.battleLine ?? nodeAt(ui.book, fenAfter(ui.book.start))?.name ?? ui.book.title, undefined, ui.book.side);
+        }}
       />
     );
   }
@@ -682,7 +693,9 @@ function OpeningPage({
   isDark,
   onBack,
   onRun,
-  onPlayOut
+  onPlayOut,
+  ideas,
+  onOpenCourse
 }: {
   ui: BookUi;
   store: TrainStore;
@@ -691,6 +704,8 @@ function OpeningPage({
   onBack: () => void;
   onRun: (spec: TrainRunSpec) => void;
   onPlayOut: () => void;
+  ideas: LessonCourse | null;
+  onOpenCourse: (course: LessonCourse) => void;
 }) {
   const { book, index, levels } = ui;
   const states = useMemo(() => {
@@ -816,6 +831,18 @@ function OpeningPage({
             }
             trailing={<small className="ct2-caption">{ui.tricky}</small>}
             onClick={() => onRun({ kind: "tricky", bookId: book.id })}
+          />
+        ) : null}
+        {ideas ? (
+          <ListRow
+            title="Ideas"
+            subtitle={ideas.title}
+            leading={
+              <span className="ct2-list-icon">
+                <MetalIcon icon="auto_stories" size={36} />
+              </span>
+            }
+            onClick={() => onOpenCourse(ideas)}
           />
         ) : null}
         <ListRow
