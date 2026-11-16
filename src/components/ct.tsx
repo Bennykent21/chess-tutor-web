@@ -404,3 +404,26 @@ export function BotPicture({ src }: { src: string }) {
     </div>
   );
 }
+
+/**
+ * The coach above a board (the app's CtTutor): a mascot in a mood and a tailed bubble standing on
+ * the board. Long text scrolls inside the bubble.
+ */
+export function Tutor({
+  mascotId,
+  mood = "ready",
+  children
+}: {
+  mascotId: string;
+  mood?: "ready" | "thinking" | "kind" | "proud";
+  children: ReactNode;
+}) {
+  return (
+    <div className="ct2-tutor">
+      <img src={`/assets/mascot/${mascotId}_${mood}.svg`} alt="" className="ct2-tutor-mascot" />
+      <div className="ct2-bubble" aria-live="polite">
+        {children}
+      </div>
+    </div>
+  );
+}

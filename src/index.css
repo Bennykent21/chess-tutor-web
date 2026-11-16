@@ -4574,3 +4574,210 @@ button.ct-action-tile:active,
   padding: 8px 12px 0;
   line-height: 20px;
 }
+
+/* Coach above the board (CtTutor + CtSpeechBubble) */
+
+.ct2-tutor {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  min-height: 0;
+}
+
+.ct2-tutor-mascot {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.ct2-bubble {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  max-height: 168px;
+  overflow-y: auto;
+  margin-left: 10px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 21px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ct2-bubble::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  bottom: 16px;
+  border-style: solid;
+  border-width: 8px 10px 8px 0;
+  border-color: transparent var(--surface) transparent transparent;
+}
+
+.ct2-bubble-name {
+  font-size: 13px;
+  color: var(--accent);
+}
+
+/* Board screens: the zone above the board takes the spare height and stands on the board,
+   so the board sits at the same place whatever is said above it (CtBoardScreen). */
+.ct2-board-zone {
+  flex: 1 0 auto;
+  justify-content: flex-end;
+  min-height: 120px;
+}
+
+.ct2-board-area {
+  min-height: 48px;
+}
+
+.ct2-menu-anchor {
+  position: relative;
+}
+
+.ct2-menu {
+  position: absolute;
+  right: 4px;
+  top: 44px;
+  z-index: 30;
+  min-width: 220px;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--raised);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+}
+
+.ct2-menu button {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-size: 15px;
+}
+
+.ct2-menu button:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.ct2-menu button:disabled {
+  color: var(--text2);
+  cursor: default;
+}
+
+.ct2-puzzle-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 32px;
+}
+
+.ct2-puzzle-status strong {
+  flex: 1;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ct2-status-king {
+  width: 28px;
+  height: 28px;
+}
+
+.ct2-status-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  color: var(--text2);
+  flex-shrink: 0;
+}
+
+.ct2-status-mark.is-solved {
+  background: var(--success);
+  color: var(--bg);
+}
+
+.ct2-strikes {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--error);
+}
+
+.ct2-status-clock {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text2);
+  font-variant-numeric: tabular-nums;
+}
+
+.ct2-run-bars {
+  display: flex;
+  gap: 3px;
+}
+
+.ct2-run-bars > span {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--track);
+}
+
+.ct2-run-bars > span.is-now {
+  background: var(--text2);
+}
+
+.ct2-run-bars > span.is-clean {
+  background: var(--success);
+}
+
+.ct2-run-bars > span.is-solved {
+  background: var(--accent);
+}
+
+.ct2-run-bars > span.is-missed {
+  background: var(--error);
+}
+
+.ct2-under-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  padding-top: 10px;
+}
+
+/* The row under the board keeps one height, so the board never moves (CtBoardScreen's under). */
+.ct2-under-slot {
+  height: 48px;
+  overflow: hidden;
+}
+
+.ct2-under-slot .ct2-under-chips {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  justify-content: flex-start;
+  scrollbar-width: none;
+}
+
+.ct2-board-controls {
+  min-height: 72px;
+}
+
+.ct2-board-controls {
+  height: calc(84px + env(safe-area-inset-bottom));
+  flex-shrink: 0;
+}

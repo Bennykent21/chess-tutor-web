@@ -8,6 +8,8 @@ import {
   ChevronRight,
   Clock,
   Cpu,
+  Eye,
+  MoreVertical,
   Flame,
   Grid,
   Heart,
@@ -47,7 +49,7 @@ import {
   updatePuzzleElo,
   xpForPuzzleSolve
 } from "../domain/puzzles";
-import { whiteAtBottom } from "../domain/theme";
+import { pieceAssetUrl, whiteAtBottom } from "../domain/theme";
 import { playCue, triggerHaptic } from "../lib/audio";
 import { parseUci, uciToSan } from "../lib/chessUtils";
 import {
@@ -60,6 +62,8 @@ import {
 import { BoardArrow, BoardHighlight, BoardHost } from "../components/BoardHost";
 import { CoachBubble } from "../components/CoachBubble";
 import {
+  PrimaryButton,
+  Tutor,
   BOARD_SCENES,
   BoardPicture,
   HeroCard,
@@ -816,6 +820,9 @@ function PuzzlePlayer({
   const [reportOpen, setReportOpen] = useState(false);
   const [reportNote, setReportNote] = useState("");
   const [reportSent, setReportSent] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  /** How each puzzle of the run went, for the bars above the board. */
+  const [marks, setMarks] = useState<("clean" | "solved" | "missed")[]>([]);
 
   // Timers
   const startTimeRef = useRef<number>(Date.now());
@@ -861,6 +868,7 @@ function PuzzlePlayer({
     setReportOpen(false);
     setReportNote("");
     setReportSent(false);
+    setMenuOpen(false);
     startTimeRef.current = Date.now();
     setElapsedSec(0);
     forceTick(n => n + 1);
@@ -916,6 +924,11 @@ function PuzzlePlayer({
 
   const recordFinish = (solved: boolean, revealed: boolean, clean: boolean) => {
     const elapsedMs = Date.now() - startTimeRef.current;
+    setMarks(m => {
+      const next = [...m];
+      next[index] = solved ? (clean ? "clean" : "solved") : "missed";
+      return next;
+    });
     if (currentMistakeItem?.kind === "game-mistake") {
       onReviewGameMistake(currentMistakeItem.mistake.key, clean);
       if (solved) {
@@ -1129,180 +1142,200 @@ function PuzzlePlayer({
       : "ready";
 
   const formatSec = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  const after = isSolvedOrRevealed;
+  const coachText =
+    session.status === "solved"
+      ? feedback.startsWith("Solved: a great alternative")
+        ? "Solved: a great alternative! That move wins too."
+        : "Correct! Well found."
+      : session.status === "revealed"
+      ? "Not this time. Have a look at the solution."
+      : promptMessage;
+  const headline =
+    session.status === "solved"
+      ? feedback.startsWith("Solved: a great alternative")
+        ? "Solved another way"
+        : "Solved"
+      : session.status === "revealed"
+      ? "Solution"
+      : `${sideName} to move`;
+  const isLast = totalInSet !== null && index + 1 >= totalInSet;
+  const analyse = () => {
+    setMenuOpen(false);
+    const startPos = isGameMistake
+      ? currentMistakeItem.mistake.fen
+      : (() => {
+          const c = new Chess(session.puzzle.fen);
+          const p = parseUci(session.openingMove);
+          if (p) c.move({ from: p.from, to: p.to, promotion: p.promotion ?? "q" });
+          return c.fen();
+        })();
+    const line = isGameMistake ? [currentMistakeItem.mistake.expected] : session.puzzle.moves.slice(1);
+    onOpenExplore(startPos, line);
+  };
 
   return (
-    <div className="ct-focus-shell">
-      <header className="ct-focus-topbar">
-        <button type="button" className="ct-icon-btn" onClick={onExit}>
-          <ArrowLeft size={18} /> <span>Exit</span>
+    <div className="ct2-board-screen">
+      <header className="ct2-board-topbar">
+        <button type="button" className="ct2-icon-btn" aria-label="Back" onClick={onExit}>
+          <ArrowLeft size={22} />
         </button>
-        <div className="ct-focus-title">
-          <strong>
-            {config.title}
-            {totalInSet ? ` · ${index + 1}/${totalInSet}` : ` · #${index + 1}`}
-          </strong>
-          {isSolvedOrRevealed && !isGameMistake && (
-            <small className="mono-num">Puzzle rating {session.puzzle.rating}</small>
-          )}
-        </div>
-        <div className="ct-focus-stats mono-num">
-          {config.kind === "rush" ? (
-            <>
-              {rushRemainingSec !== null && <span>⏱ {formatSec(rushRemainingSec)}</span>}
-              <span>✗ {strikes}/3</span>
-              <span>✓ {solvedCount}</span>
-            </>
-          ) : (
-            <span>⏱ {formatSec(elapsedSec)}</span>
-          )}
+        <h1>{config.title}</h1>
+        <div className="ct2-menu-anchor">
+          <button type="button" className="ct2-icon-btn" aria-label="More options" onClick={() => setMenuOpen(o => !o)}>
+            <MoreVertical size={20} />
+          </button>
+          {menuOpen ? (
+            <div className="ct2-menu" role="menu">
+              {after ? (
+                <button type="button" role="menuitem" onClick={analyse}>
+                  Analyse
+                </button>
+              ) : null}
+              {!isGameMistake ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={!after || reportSent}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setReportOpen(true);
+                  }}
+                >
+                  {reportSent ? "Reported, thank you" : "Another move works here"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </header>
 
-      <div className="ct-board-workspace">
-        <div className="ct-board-column">
-          <BoardHost
-            fen={session.fen}
-            orientation={orientation}
-            interactive={session.status === "solving"}
-            allowedSide={session.solverColor}
-            boardColorsId={settings.boardThemeId}
-            pieceSetId={settings.pieceSetId}
-            showCoordinates={settings.showCoordinates}
-            showLegalDots={settings.showLegalDots}
-            autoQueen={settings.autoQueen}
-            reduceMotion={settings.reduceMotion}
-            lastMove={session.lastMove === "0000" ? null : session.lastMove}
-            arrows={arrows}
-            highlights={highlights}
-            mistakeFlashSquare={mistakeSquare}
-            onMove={handleMove}
-          />
+      <div className="ct2-board-zone ct2-puzzle-zone">
+        <Tutor mascotId={settings.mascotId} mood={session.status === "solved" ? "proud" : session.status === "revealed" ? "kind" : hintTarget ? "thinking" : "ready"}>
+          <span>{coachText}</span>
+          {after && isGameMistake ? (
+            <span className="ct2-caption">
+              In your game vs {currentMistakeItem.mistake.opponent} you played {currentMistakeItem.mistake.san}. Best was{" "}
+              {uciToSan(currentMistakeItem.mistake.fen, currentMistakeItem.mistake.expected)}.
+            </span>
+          ) : null}
+          {reportSent ? <span className="ct2-caption">Thanks! Saved in this browser to improve the puzzles.</span> : null}
+        </Tutor>
+        <div className="ct2-puzzle-status">
+          {session.status === "solved" ? (
+            <span className="ct2-status-mark is-solved">
+              <Check size={18} strokeWidth={3} />
+            </span>
+          ) : session.status === "revealed" ? (
+            <span className="ct2-status-mark">
+              <Eye size={16} />
+            </span>
+          ) : (
+            <img className="ct2-status-king" src={pieceAssetUrl(settings.pieceSetId, session.solverColor, "k")} alt="" />
+          )}
+          <strong>{headline}</strong>
+          {config.kind === "rush" ? (
+            <>
+              <span className="ct2-strikes">Strikes {strikes}/3</span>
+              <span className="ct2-caption">{solvedCount} solved</span>
+            </>
+          ) : totalInSet ? (
+            <span className="ct2-caption">
+              {index + 1} of {totalInSet}
+            </span>
+          ) : null}
+          <span className="ct2-status-clock">
+            {rushRemainingSec !== null ? formatSec(rushRemainingSec) : formatSec(elapsedSec)}
+          </span>
         </div>
-
-        <aside className="ct-side-panel">
-          {totalInSet && (
-            <div className="ct-progress-track">
-              <div
-                className="ct-progress-fill"
-                style={{ width: `${Math.round(((index + (isSolvedOrRevealed ? 1 : 0)) / totalInSet) * 100)}%` }}
-              />
-            </div>
-          )}
-
-          <CoachBubble
-            mascotId={settings.mascotId}
-            mood={mood}
-            tone={session.status === "solved" ? "success" : session.mistakes > 0 ? "warning" : "default"}
-            sideLabel={`You play ${sideName}`}
-            message={promptMessage}
-          />
-
-          {isSolvedOrRevealed && (
-            <div className="ct-card">
-              {!isGameMistake && (
-                <>
-                  <div className="ct-kicker">Revealed Themes</div>
-                  <div className="ct-chip-wrap">
-                    {session.puzzle.themes.slice(0, 6).map(t => (
-                      <span key={t} className="ct-pill-tag">
-                        {displayThemeName(t)}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {isGameMistake && (
-                <p className="ct-muted">
-                  In your game vs {currentMistakeItem.mistake.opponent} (move {currentMistakeItem.mistake.moveNumber}),{" "}
-                  you played <strong>{currentMistakeItem.mistake.san}</strong>. Best was{" "}
-                  <strong>{uciToSan(currentMistakeItem.mistake.fen, currentMistakeItem.mistake.expected)}</strong>.
-                </p>
-              )}
-
-              <div className="ct-btn-row" style={{ marginTop: 10 }}>
-                <button
-                  type="button"
-                  className="ct-btn ct-btn-primary"
-                  onClick={advanceNext}
-                >
-                  {totalInSet && index + 1 >= totalInSet ? "Finish Set" : "Next Puzzle"}{" "}
-                  <ChevronRight size={16} />
-                </button>
-                <button
-                  type="button"
-                  className="ct-btn ct-btn-secondary"
-                  onClick={() => {
-                    const startPos = isGameMistake
-                      ? currentMistakeItem.mistake.fen
-                      : (() => {
-                          const c = new Chess(session.puzzle.fen);
-                          const p = parseUci(session.openingMove);
-                          if (p) c.move({ from: p.from, to: p.to, promotion: p.promotion ?? "q" });
-                          return c.fen();
-                        })();
-                    const line = isGameMistake ? [currentMistakeItem.mistake.expected] : session.puzzle.moves.slice(1);
-                    onOpenExplore(startPos, line);
-                  }}
-                >
-                  <Cpu size={16} /> Analyse
-                </button>
-              </div>
-            </div>
-          )}
-
-          {!isGameMistake && (
-            <div className="ct-card ct-compact-card">
-              {!reportOpen ? (
-                <button
-                  type="button"
-                  className="ct-text-btn"
-                  onClick={() => setReportOpen(true)}
-                >
-                  <AlertTriangle size={14} />{" "}
-                  {reportSent ? "Report saved locally — thank you!" : "I found another move / Report issue"}
-                </button>
-              ) : (
-                <div className="ct-report-form">
-                  <input
-                    type="text"
-                    placeholder="Optional move or note (e.g. Qe7 also wins)…"
-                    value={reportNote}
-                    onChange={e => setReportNote(e.target.value)}
-                  />
-                  <div className="ct-btn-row">
-                    <button
-                      type="button"
-                      className="ct-btn ct-btn-primary"
-                      onClick={() => {
-                        onReportIssue(session.puzzle.id, session.fen, reportNote.trim() || "Alternative move claimed");
-                        setReportOpen(false);
-                        setReportSent(true);
-                      }}
-                    >
-                      Save report
-                    </button>
-                    <button type="button" className="ct-btn ct-btn-ghost" onClick={() => setReportOpen(false)}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {session.status === "solving" && (
-            <div className="ct-thumb-bar">
-              <button type="button" className="ct-btn ct-btn-secondary" onClick={handleHint}>
-                <Lightbulb size={16} /> Hint
-              </button>
-              <button type="button" className="ct-btn ct-btn-ghost" onClick={handleReveal}>
-                Solution
-              </button>
-            </div>
-          )}
-        </aside>
+        {totalInSet ? (
+          <div className="ct2-run-bars" aria-label={`Puzzle ${index + 1} of ${totalInSet}, ${solvedCount} solved`}>
+            {Array.from({ length: totalInSet }, (_, i) => (
+              <span key={i} className={marks[i] ? `is-${marks[i]}` : i === index ? "is-now" : ""} />
+            ))}
+          </div>
+        ) : null}
       </div>
+
+      <div className="ct2-board-area">
+        <BoardHost
+          fen={session.fen}
+          orientation={orientation}
+          interactive={session.status === "solving"}
+          allowedSide={session.solverColor}
+          boardColorsId={settings.boardThemeId}
+          pieceSetId={settings.pieceSetId}
+          showCoordinates={settings.showCoordinates}
+          showLegalDots={settings.showLegalDots}
+          autoQueen={settings.autoQueen}
+          reduceMotion={settings.reduceMotion}
+          lastMove={session.lastMove === "0000" ? null : session.lastMove}
+          arrows={arrows}
+          highlights={highlights}
+          mistakeFlashSquare={mistakeSquare}
+          onMove={handleMove}
+        />
+        <div className="ct2-under-slot">
+        {after && !isGameMistake ? (
+          <div className="ct2-under-chips">
+            <span className="ct2-chip">Rated {session.puzzle.rating}</span>
+            {session.puzzle.themes.slice(0, 3).map(t => (
+              <span key={t} className="ct2-chip">
+                {displayThemeName(t)}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        </div>
+      </div>
+
+      <div className="ct2-board-controls">
+        {after ? (
+          <PrimaryButton onClick={advanceNext}>{isLast ? "See your result" : "Next puzzle"}</PrimaryButton>
+        ) : (
+          <>
+            <button type="button" className="ct2-control" onClick={handleHint}>
+              <Lightbulb size={20} />
+              <span>Hint</span>
+            </button>
+            <button type="button" className="ct2-control" onClick={handleReveal}>
+              <Eye size={20} />
+              <span>Solution</span>
+            </button>
+          </>
+        )}
+      </div>
+
+      {reportOpen ? (
+        <div className="ct2-sheet-scrim" onClick={() => setReportOpen(false)}>
+          <div className="ct2-sheet" role="dialog" aria-label="Another move works here" onClick={e => e.stopPropagation()}>
+            <div className="ct2-sheet-handle" aria-hidden="true" />
+            <h2>Another move works here</h2>
+            <p className="ct2-caption">Say which move, if you like. The report stays in this browser.</p>
+            <input
+              className="ct2-input"
+              style={{ marginTop: 12 }}
+              placeholder="e.g. Qe7 also wins"
+              value={reportNote}
+              onChange={e => setReportNote(e.target.value)}
+            />
+            <div className="ct2-pair-buttons" style={{ marginTop: 16 }}>
+              <button type="button" className="ct2-secondary" onClick={() => setReportOpen(false)}>
+                Cancel
+              </button>
+              <PrimaryButton
+                onClick={() => {
+                  onReportIssue(session.puzzle.id, session.fen, reportNote.trim() || "Alternative move claimed");
+                  setReportOpen(false);
+                  setReportSent(true);
+                }}
+              >
+                Report
+              </PrimaryButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
