@@ -13,7 +13,8 @@ import {
   Search,
   Sparkles,
   Swords,
-  Trash2
+  Trash2,
+  Users
 } from "lucide-react";
 import {
   BOT_ROSTER,
@@ -40,6 +41,7 @@ import {
   OnboardingProfile,
   PuzzleStoreState,
   StartingLevelId,
+  TutorGameRecord,
   computeDayStreak,
   generateUuid,
   localDateKey
@@ -47,6 +49,7 @@ import {
 import { PlayBoardLaunch, TIME_CONTROLS, TimeControlOption } from "./PlayBoardView";
 import { CoachBubble } from "../components/CoachBubble";
 import { BoardHost } from "../components/BoardHost";
+import { FriendGameScreen, FriendSetup, FriendSetupPage } from "./FriendView";
 import {
   ArtTile,
   BoardPicture,
@@ -68,7 +71,9 @@ export type HomeSubRoute =
   | { view: "battle"; presetOpeningName?: string; presetLine?: OpeningLine; presetSide?: "w" | "b" }
   | { view: "position" }
   | { view: "watch" }
-  | { view: "explore" };
+  | { view: "explore" }
+  | { view: "friend" }
+  | { view: "friend-game"; setup: FriendSetup };
 
 export function HomeView({
   route,
@@ -92,7 +97,8 @@ export function HomeView({
   onOpenDailyPuzzle,
   onOpenMistakesReview,
   onOpenHealthCheck,
-  isDark
+  isDark,
+  onSaveGame
 }: {
   route: HomeSubRoute;
   setRoute: (r: HomeSubRoute) => void;
@@ -116,6 +122,7 @@ export function HomeView({
   onOpenMistakesReview: () => void;
   onOpenHealthCheck: () => void;
   isDark: boolean;
+  onSaveGame: (record: TutorGameRecord) => void;
 }) {
   const [welcomeName, setWelcomeName] = useState(settings.playerName);
   const streak = computeDayStreak(puzzleStore.activeDays);
@@ -175,6 +182,30 @@ export function HomeView({
     );
   }
 
+  if (route.view === "friend") {
+    return (
+      <FriendSetupPage
+        settings={settings}
+        openingTree={openingTree}
+        onBack={() => setRoute({ view: "bots" })}
+        onStart={setup => setRoute({ view: "friend-game", setup })}
+      />
+    );
+  }
+
+  if (route.view === "friend-game") {
+    return (
+      <FriendGameScreen
+        key={JSON.stringify(route.setup)}
+        setup={route.setup}
+        settings={settings}
+        onExit={() => setRoute({ view: "friend" })}
+        onRematch={setup => setRoute({ view: "friend-game", setup })}
+        onSave={onSaveGame}
+      />
+    );
+  }
+
   if (route.view === "bots") {
     return (
       <BotsPage
@@ -186,6 +217,7 @@ export function HomeView({
         onEditBot={bot => setRoute({ view: "builder", editing: bot })}
         onDeleteBot={onDeleteCustomBot}
         onWatchTwo={() => setRoute({ view: "watch" })}
+        onPlayFriend={() => setRoute({ view: "friend" })}
       />
     );
   }
@@ -446,7 +478,8 @@ function BotsPage({
   onBuildNew,
   onEditBot,
   onDeleteBot,
-  onWatchTwo
+  onWatchTwo,
+  onPlayFriend
 }: {
   roster: typeof BOT_ROSTER;
   customBots: BotProfile[];
@@ -456,6 +489,7 @@ function BotsPage({
   onEditBot: (b: BotProfile) => void;
   onDeleteBot: (id: string) => void;
   onWatchTwo: () => void;
+  onPlayFriend: () => void;
 }) {
   const tile = (bot: BotProfile, own: boolean) => (
     <div key={bot.id} className="ct2-bot-tile">
@@ -497,6 +531,9 @@ function BotsPage({
             <Eye size={20} style={{ marginRight: 8 }} /> Watch two
           </button>
         </div>
+        <button type="button" className="ct2-secondary" style={{ marginTop: 10 }} onClick={onPlayFriend}>
+          <Users size={20} style={{ marginRight: 8 }} /> Play a friend
+        </button>
         {customBots.length > 0 ? (
           <>
             <SectionHeader title="My bots" />

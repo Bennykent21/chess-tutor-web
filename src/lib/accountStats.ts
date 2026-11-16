@@ -575,9 +575,13 @@ export function computeAccountAnalytics(
     if (!bucket.fen && g.pgn) {
       const parsed = parsePgnSafely(g.pgn);
       if (parsed.moves.length) {
-        const preview = new Chess();
-        for (let i = 0; i < Math.min(8, parsed.moves.length); i++) {
-          preview.move(parsed.moves[i].san);
+        const preview = new Chess(parsed.startFen);
+        try {
+          for (let i = 0; i < Math.min(8, parsed.moves.length); i++) {
+            preview.move(parsed.moves[i].san);
+          }
+        } catch {
+          // keep the position reached so far
         }
         bucket.fen = preview.fen();
       }
