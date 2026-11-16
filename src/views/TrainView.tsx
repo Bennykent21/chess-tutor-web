@@ -52,6 +52,9 @@ import {
   sideOf
 } from "../domain/trainPositions";
 import { analysePosition } from "../lib/engine";
+import { MyLine, endFen, freeName, lineBook, myLineBookId, sanLine } from "../domain/myLines";
+import { OpeningLine, OpeningTree } from "../domain/openings";
+import { generateUuid } from "../lib/storage";
 import type { GameReviewReport } from "../domain/account";
 import { ENDINGS, FindingGame, GameFinding, findingGameOf, gameFindings } from "../domain/gameFindings";
 
@@ -65,7 +68,8 @@ import { ArtTile, BoardPicture, ListRow, MetalIcon, PrimaryButton, ScreenTitle }
 export type TrainRunSpec =
   | { kind: "learn"; bookId: string; within: string[] | null }
   | { kind: "review"; bookId: string | null }
-  | { kind: "tricky"; bookId: string };
+  | { kind: "tricky"; bookId: string }
+  | { kind: "drill"; bookId: string; moves: string[] };
 
 export type TrainSubRoute =
   | { view: "hub" }
@@ -74,10 +78,13 @@ export type TrainSubRoute =
   | { view: "run"; spec: TrainRunSpec; back: TrainSubRoute }
   | { view: "positions"; kind: PositionKind }
   | { view: "position-run"; setId: string }
-  | { view: "from-games" };
+  | { view: "from-games" }
+  | { view: "lines" }
+  | { view: "line"; lineId: string }
+  | { view: "line-new" };
 
 export function isTrainFocus(route: TrainSubRoute): boolean {
-  return route.view === "run" || route.view === "position-run";
+  return route.view === "run" || route.view === "position-run" || route.view === "line-new";
 }
 
 interface BookUi {
@@ -115,7 +122,8 @@ export function TrainView({
   effectiveRating,
   onOpenBattle,
   games,
-  reviews
+  reviews,
+  openingTree
 }: {
   route: TrainSubRoute;
   setRoute: (r: TrainSubRoute) => void;
@@ -124,7 +132,8 @@ export function TrainView({
   store: TrainStore;
   onUpdateStore: (change: (prev: TrainStore) => TrainStore) => void;
   effectiveRating: number;
-  onOpenBattle: (openingName?: string) => void;
+  onOpenBattle: (openingName?: string, line?: OpeningLine, side?: "w" | "b") => void;
+  openingTree: OpeningTree;
   /** Every saved and imported game, for "From your games". */
   games: FindingSource[];
   reviews: Record<string, GameReviewReport>;
@@ -137,6 +146,9 @@ export function TrainView({
   }, []);
 
   const indexes = useMemo(() => (books ?? []).map(b => new RepertoireIndex(b)), [books]);
+  /** The taught openings and the player's own lines, which share the review. */
+  const lineIndexes = useMemo(() => store.lines.map(l => new RepertoireIndex(lineBook(l))), [store.lines]);
+  const allIndexes = useMemo(() => [...indexes, ...lineIndexes], [indexes, lineIndexes]);
   const now = Date.now();
 
   // "From your games" is worked out after the page has drawn, and again when games change.
@@ -213,7 +225,7 @@ export function TrainView({
       <RepertoireRun
         key={JSON.stringify(route.spec)}
         spec={route.spec}
-        indexes={indexes}
+        indexes={allIndexes}
         store={store}
         settings={settings}
         onSave={saveOutcome}
@@ -233,6 +245,65 @@ export function TrainView({
         settings={settings}
         onSave={(id, record) => onUpdateStore(prev => ({ ...prev, positions: { ...prev.positions, [id]: record } }))}
         onBack={() => setRoute({ view: "positions", kind: set.kind })}
+      />
+    );
+  }
+
+  if (route.view === "lines") {
+    return (
+      <MyLinesPage
+        lines={store.lines}
+        settings={settings}
+        onBack={() => setRoute({ view: "hub" })}
+        onNew={() => setRoute({ view: "line-new" })}
+        onOpen={id => setRoute({ view: "line", lineId: id })}
+        onAnyOpening={() => onOpenBattle()}
+      />
+    );
+  }
+
+  if (route.view === "line") {
+    const line = store.lines.find(l => l.id === route.lineId);
+    if (!line) return <BackOnly onBack={() => setRoute({ view: "lines" })} />;
+    return (
+      <MyLinePage
+        line={line}
+        settings={settings}
+        onBack={() => setRoute({ view: "lines" })}
+        onDrill={() =>
+          setRoute({ view: "run", spec: { kind: "drill", bookId: myLineBookId(line), moves: line.moves }, back: route })
+        }
+        onPlay={() =>
+          onOpenBattle(undefined, { eco: "", name: line.name, moves: line.moves, family: line.name, variation: "" }, line.side)
+        }
+        onDelete={() => {
+          const bookId = myLineBookId(line);
+          onUpdateStore(prev => ({
+            ...prev,
+            lines: prev.lines.filter(l => l.id !== line.id),
+            cards: Object.fromEntries(Object.entries(prev.cards).filter(([, c]) => c.bookId !== bookId)),
+            reviews: prev.reviews.filter(r => r.bookId !== bookId)
+          }));
+          setRoute({ view: "lines" });
+        }}
+      />
+    );
+  }
+
+  if (route.view === "line-new") {
+    return (
+      <LineBuilder
+        settings={settings}
+        openingTree={openingTree}
+        onBack={() => setRoute({ view: "lines" })}
+        onSave={(name, side, moves) => {
+          const id = generateUuid();
+          onUpdateStore(prev => ({
+            ...prev,
+            lines: [...prev.lines, { id, name: freeName(name, prev.lines.map(l => l.name)), side, moves }]
+          }));
+          setRoute({ view: "line", lineId: id });
+        }}
       />
     );
   }
@@ -340,8 +411,9 @@ export function TrainView({
   }
 
   // Train home
-  const dueTotal = bookUis.reduce((s, b) => s + b.due, 0);
-  const dueSamples = buildReviewQueue(indexes, Object.values(store.cards), now, 3);
+  const allQueue = buildReviewQueue(allIndexes, Object.values(store.cards), now, 1000);
+  const dueTotal = allQueue.length;
+  const dueSamples = allQueue.slice(0, 3);
   const minutes = Math.max(1, Math.floor((dueTotal + 1) / 2));
   return (
     <div className="ct2-page">
@@ -428,7 +500,7 @@ export function TrainView({
               <MetalIcon icon="sports_esports" size={36} />
             </span>
           }
-          onClick={() => onOpenBattle()}
+          onClick={() => setRoute({ view: "lines" })}
         />
         <ListRow
           title="From your games"
@@ -794,6 +866,13 @@ function RepertoireRun({
       const segment = planLearn(index, levelsOf(store, index.book.id).unlocked, introducedSet(store, index.book.id), undefined, spec.within);
       return segment ? { kind: "learn", run: new LearnRun(index, segment) } : { kind: "empty" };
     }
+    if (spec.kind === "drill") {
+      const index = indexes.find(i => i.book.id === spec.bookId);
+      if (!index) return { kind: "empty" };
+      const known = introducedSet(store, index.book.id);
+      const own = cardsOf(index.book).map(n => n.key).filter(k => !known.has(k));
+      return { kind: "learn", run: new LearnRun(index, { moves: spec.moves, newCards: own, name: index.book.title }) };
+    }
     const scope = spec.bookId ? indexes.filter(i => i.book.id === spec.bookId) : indexes;
     const cards = Object.values(store.cards);
     const queue: DueCard[] = spec.kind === "tricky" ? trickyQueue(scope, cards) : buildReviewQueue(scope, cards, Date.now());
@@ -995,6 +1074,7 @@ function RepertoireRun({
       : book.title;
   const moreToLearn =
     state.kind === "learn" &&
+    spec.kind === "learn" &&
     finished &&
     planLearn(state.run.index, levelsOf(store, book.id).unlocked, new Set([...introducedSet(store, book.id), ...state.run.segment.newCards])) !== null;
 
@@ -1486,6 +1566,223 @@ function PositionRun({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/* Your openings --------------------------------------------------------------------- */
+
+function MyLinesPage({
+  lines,
+  settings,
+  onBack,
+  onNew,
+  onOpen,
+  onAnyOpening
+}: {
+  lines: MyLine[];
+  settings: AppSettings;
+  onBack: () => void;
+  onNew: () => void;
+  onOpen: (id: string) => void;
+  onAnyOpening: () => void;
+}) {
+  return (
+    <div className="ct2-page" style={{ gap: 0 }}>
+      <BackBar onBack={onBack} />
+      <ScreenTitle title="Your openings" />
+      <div className="ct2-gutter" style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 4 }}>
+        {lines.length === 0 ? (
+          <p className="ct2-body-muted">Build a line move by move, drill it, then play it out against Stockfish.</p>
+        ) : (
+          <div>
+            {lines.map(line => (
+              <button key={line.id} type="button" className="ct2-list-row" onClick={() => onOpen(line.id)} aria-label={`Open ${line.name}`}>
+                <span className="ct2-thumb">
+                  <BoardPicture
+                    fen={endFen(line.moves)}
+                    boardThemeId={settings.boardThemeId}
+                    pieceSet={settings.pieceSetId}
+                    whiteAtBottom={line.side === "w"}
+                    aspect={1}
+                    zoom={1}
+                  />
+                </span>
+                <span className="ct2-list-text">
+                  <strong>{line.name}</strong>
+                  <small>
+                    {line.side === "w" ? "As White" : "As Black"} · {Math.ceil(line.moves.length / 2)} moves
+                  </small>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        <PrimaryButton onClick={onNew}>New line</PrimaryButton>
+        <ListRow
+          title="Any opening from the book"
+          subtitle="Opening battle, from 3,865 lines"
+          leading={
+            <span className="ct2-list-icon">
+              <MetalIcon icon="auto_stories" size={36} />
+            </span>
+          }
+          onClick={onAnyOpening}
+        />
+      </div>
+    </div>
+  );
+}
+
+function MyLinePage({
+  line,
+  settings,
+  onBack,
+  onDrill,
+  onPlay,
+  onDelete
+}: {
+  line: MyLine;
+  settings: AppSettings;
+  onBack: () => void;
+  onDrill: () => void;
+  onPlay: () => void;
+  onDelete: () => void;
+}) {
+  const [deleting, setDeleting] = useState(false);
+  return (
+    <div className="ct2-page" style={{ gap: 0 }}>
+      <BackBar onBack={onBack} />
+      <ScreenTitle title={line.name} />
+      <div className="ct2-gutter" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <p className="ct2-caption">{line.side === "w" ? "As White" : "As Black"}</p>
+        <div className="ct2-line-board">
+          <BoardPicture
+            fen={endFen(line.moves)}
+            boardThemeId={settings.boardThemeId}
+            pieceSet={settings.pieceSetId}
+            whiteAtBottom={line.side === "w"}
+            aspect={1}
+            zoom={1}
+          />
+        </div>
+        <p className="ct2-body">{sanLine(line.moves)}</p>
+        <PrimaryButton onClick={onDrill}>Drill it</PrimaryButton>
+        <button type="button" className="ct2-secondary" onClick={onPlay}>
+          Play it out vs Stockfish
+        </button>
+        <button type="button" className="ct2-ghost" style={{ width: "100%" }} onClick={() => setDeleting(true)}>
+          Delete
+        </button>
+      </div>
+      {deleting ? (
+        <div className="ct2-sheet-scrim" onClick={() => setDeleting(false)}>
+          <div className="ct2-sheet" role="dialog" aria-label={`Delete ${line.name}?`} onClick={e => e.stopPropagation()}>
+            <div className="ct2-sheet-handle" aria-hidden="true" />
+            <h2>Delete {line.name}?</h2>
+            <p className="ct2-caption">The line and how well you know it are gone for good.</p>
+            <div className="ct2-pair-buttons" style={{ marginTop: 16 }}>
+              <button type="button" className="ct2-secondary" onClick={() => setDeleting(false)}>
+                Cancel
+              </button>
+              <button type="button" className="ct2-danger" onClick={onDelete}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** A new line on the board: both sides' moves, the side you will play, and its name. */
+function LineBuilder({
+  settings,
+  openingTree,
+  onBack,
+  onSave
+}: {
+  settings: AppSettings;
+  openingTree: OpeningTree;
+  onBack: () => void;
+  onSave: (name: string, side: "w" | "b", moves: string[]) => void;
+}) {
+  const [moves, setMoves] = useState<string[]>([]);
+  const [side, setSide] = useState<"w" | "b">("w");
+  const [naming, setNaming] = useState<string | null>(null);
+  const fen = useMemo(() => endFen(moves), [moves]);
+  const bookName = useMemo(() => (moves.length ? openingTree.match(moves).opening?.name ?? null : null), [moves, openingTree]);
+
+  return (
+    <div className="ct2-board-screen">
+      <BoardTopBar title="New line" onBack={onBack} />
+      <div className="ct2-board-zone">
+        <div className="ct2-segmented" role="radiogroup" aria-label="Your side">
+          {(["w", "b"] as const).map(s => (
+            <button key={s} type="button" role="radio" aria-checked={side === s} className={side === s ? "is-on" : ""} onClick={() => setSide(s)}>
+              {s === "w" ? "As White" : "As Black"}
+            </button>
+          ))}
+        </div>
+        <p className="ct2-caption" style={{ minHeight: 20 }}>
+          {bookName ?? (moves.length ? "Your own line" : "Play the moves of both sides.")}
+        </p>
+      </div>
+      <div className="ct2-board-area">
+        <BoardHost
+          fen={fen}
+          orientation={side}
+          interactive
+          allowAllColors
+          boardColorsId={settings.boardThemeId}
+          pieceSetId={settings.pieceSetId}
+          showCoordinates={settings.showCoordinates}
+          showLegalDots={settings.showLegalDots}
+          autoQueen={settings.autoQueen}
+          reduceMotion={settings.reduceMotion}
+          lastMove={moves[moves.length - 1] ?? null}
+          onMove={uci => {
+            playCue("move", settings.soundEnabled);
+            setMoves(m => [...m, uci]);
+          }}
+        />
+        <p className="ct2-caption ct2-under">{sanLine(moves)}</p>
+      </div>
+      <div className="ct2-board-controls">
+        <Control icon={<RotateCcw size={20} />} label="Undo" disabled={!moves.length} onClick={() => setMoves(m => m.slice(0, -1))} />
+        <PrimaryButton
+          disabled={!moves.length}
+          onClick={() => setNaming(bookName ? bookName.slice(bookName.indexOf(":") + 1).trim() : "")}
+        >
+          Save
+        </PrimaryButton>
+      </div>
+      {naming !== null ? (
+        <div className="ct2-sheet-scrim" onClick={() => setNaming(null)}>
+          <div className="ct2-sheet" role="dialog" aria-label="Name this line" onClick={e => e.stopPropagation()}>
+            <div className="ct2-sheet-handle" aria-hidden="true" />
+            <h2>Name this line</h2>
+            <input
+              className="ct2-input"
+              autoFocus
+              maxLength={40}
+              placeholder="My line"
+              value={naming}
+              onChange={e => setNaming(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") onSave(naming, side, moves);
+              }}
+            />
+            <div className="ct2-pair-buttons" style={{ marginTop: 16 }}>
+              <button type="button" className="ct2-secondary" onClick={() => setNaming(null)}>
+                Cancel
+              </button>
+              <PrimaryButton onClick={() => onSave(naming, side, moves)}>Save</PrimaryButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import type { MyLine } from "../domain/myLines";
 import type { CardReview, CardState, LevelProgress } from "../domain/repertoire";
 import type { PositionRecord } from "../domain/trainPositions";
 import type { BotProfile, ChatLevel } from "../domain/bots";
@@ -663,9 +664,11 @@ export interface TrainStore {
   reviews: CardReview[];
   levels: Record<string, LevelProgress>;
   positions: Record<string, PositionRecord>;
+  /** The player's own opening lines. */
+  lines: MyLine[];
 }
 
-export const defaultTrainStore: TrainStore = { cards: {}, reviews: [], levels: {}, positions: {} };
+export const defaultTrainStore: TrainStore = { cards: {}, reviews: [], levels: {}, positions: {}, lines: [] };
 
 export function loadTrainStore(): TrainStore {
   return { ...defaultTrainStore, ...readJson<Partial<TrainStore>>(KEYS.TRAIN, defaultTrainStore) };

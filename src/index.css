@@ -4347,3 +4347,65 @@ button.ct-action-tile:active,
   background: var(--raised);
   border-radius: 14px;
 }
+
+/* Your openings */
+
+.ct2-line-board {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  margin: 4px auto;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.ct2-body {
+  font-size: 16px;
+  line-height: 23px;
+  color: var(--text);
+}
+
+.ct2-danger {
+  height: 52px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--error);
+  color: var(--onError, #fff);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.ct2-segmented {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.ct2-segmented > button {
+  flex: 1;
+  min-height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text2);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.ct2-segmented > button.is-on {
+  background: var(--raised);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.ct2-input {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface);
+  font-size: 16px;
+}
