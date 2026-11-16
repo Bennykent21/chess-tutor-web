@@ -57,6 +57,8 @@ export interface BoardHostProps {
   bottomPlayer?: BoardPlayerStrip;
   onMove?: (uci: string) => void;
   maxBoardPx?: number;
+  /** Moves chess.js does not know, offered as well (Chess960 castling: the king onto its own rook). */
+  extraMoves?: string[];
 }
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
@@ -119,7 +121,8 @@ export function BoardHost({
   topPlayer,
   bottomPlayer,
   onMove,
-  maxBoardPx = 560
+  maxBoardPx = 560,
+  extraMoves = []
 }: BoardHostProps) {
   const boardColors = getBoardColors(boardColorsId);
   const chess = useMemo(() => {
@@ -184,8 +187,11 @@ export function BoardHost({
     for (const m of legalMovesFromSelected) {
       map.set(m.to, Boolean(m.captured));
     }
+    if (selectedSquare && canInteractTurn) {
+      for (const uci of extraMoves) if (uci.slice(0, 2) === selectedSquare) map.set(uci.slice(2, 4), false);
+    }
     return map;
-  }, [legalMovesFromSelected]);
+  }, [legalMovesFromSelected, extraMoves, selectedSquare, canInteractTurn]);
 
   const kingInCheckSquare = useMemo(() => {
     if (!chess.inCheck()) return null;
@@ -201,7 +207,12 @@ export function BoardHost({
 
   const attemptMove = (from: Square, to: Square) => {
     const candidates = chess.moves({ square: from, verbose: true }).filter(m => m.to === to);
-    if (!candidates.length) return false;
+    if (!candidates.length) {
+      if (!extraMoves.includes(`${from}${to}`)) return false;
+      setSelectedSquare(null);
+      onMove?.(`${from}${to}`);
+      return true;
+    }
     const isPromo = candidates.some(m => m.promotion);
     if (isPromo && !autoQueen) {
       setPendingPromo({ from, to, color: turn });

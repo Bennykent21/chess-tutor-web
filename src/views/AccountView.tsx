@@ -847,7 +847,7 @@ function GameReviewView({
 
   const parsed = useMemo(() => {
     const p = parsePgnSafely(game.pgn ?? "");
-    const c = new Chess();
+    const c = new Chess(p.startFen);
     const fens: string[] = [c.fen()];
     const uciMoves: string[] = [];
     const sans: string[] = [];

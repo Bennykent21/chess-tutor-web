@@ -4409,3 +4409,168 @@ button.ct-action-tile:active,
   background: var(--surface);
   font-size: 16px;
 }
+
+/* Play a friend */
+
+.ct2-action-page {
+  padding-bottom: 96px;
+}
+
+.ct2-action-bottom {
+  position: sticky;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  padding: 12px 20px 16px;
+  background: linear-gradient(to bottom, transparent, var(--bg) 30%);
+}
+
+@media (min-width: 1024px) {
+  .ct2-action-bottom {
+    bottom: 0;
+  }
+}
+
+.ct2-seats {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.ct2-seat {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 12px;
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.ct2-seat img {
+  width: 28px;
+  height: 28px;
+}
+
+.ct2-seat-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ct2-seat-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.ct2-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ct2-pick {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.ct2-pick.is-on {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.ct2-chosen {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.ct2-option {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  align-items: center;
+}
+
+.ct2-option:hover,
+.ct2-option.is-on {
+  background: var(--surface);
+}
+
+.ct2-option small {
+  color: var(--text2);
+}
+
+.ct2-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 16px;
+  text-align: left;
+}
+
+.ct2-switch {
+  position: relative;
+  width: 52px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--track);
+  transition: background-color 160ms ease;
+}
+
+.ct2-switch > span {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 160ms ease;
+}
+
+.ct2-switch.is-on {
+  background: var(--accent);
+}
+
+.ct2-switch.is-on > span {
+  transform: translateX(20px);
+  background: var(--onAccent);
+}
+
+.ct2-move-text {
+  text-align: left;
+  padding: 8px 12px 0;
+  line-height: 20px;
+}

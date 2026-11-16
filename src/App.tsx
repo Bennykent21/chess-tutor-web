@@ -413,6 +413,7 @@ export default function App() {
     playLaunch !== null ||
     (activeTab === "learn" && learnRoute.view === "lesson") ||
     (activeTab === "train" && isTrainFocus(trainRoute)) ||
+    (activeTab === "home" && homeRoute.view === "friend-game") ||
     (activeTab === "puzzles" && puzzlesRoute.view === "player") ||
     (activeTab === "account" && accountRoute.view === "review");
 
@@ -516,6 +517,7 @@ export default function App() {
             }}
             onOpenMistakesReview={handleOpenMistakesReview}
             isDark={isDarkAppearance}
+            onSaveGame={handleSaveGame}
             onOpenHealthCheck={() => {
               setActiveTab("account");
               setAccountRoute({ view: "settings" });

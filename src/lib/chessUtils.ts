@@ -175,13 +175,28 @@ export function tokenizePgnMoves(pgn: string): string[] {
   return cleanTokens;
 }
 
+/** The position a PGN starts from: its [FEN] header, or the normal start. */
+export function pgnStartFen(pgn: string): string {
+  const header = pgn.match(/\[FEN\s+"([^"]+)"\]/i);
+  if (header) {
+    try {
+      return new Chess(header[1]).fen();
+    } catch {
+      // fall through to the normal start
+    }
+  }
+  return new Chess().fen();
+}
+
 export function parsePgnSafely(pgn: string): {
   moves: Move[];
   incomplete: boolean;
   finalFen: string;
+  startFen: string;
 } {
   const tokens = tokenizePgnMoves(pgn);
-  const chess = new Chess();
+  const startFen = pgnStartFen(pgn);
+  const chess = new Chess(startFen);
   const played: Move[] = [];
   let incomplete = false;
 
@@ -202,6 +217,7 @@ export function parsePgnSafely(pgn: string): {
   return {
     moves: played,
     incomplete,
-    finalFen: chess.fen()
+    finalFen: chess.fen(),
+    startFen
   };
 }

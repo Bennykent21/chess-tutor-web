@@ -12,7 +12,7 @@ import type {
   PieceSetId
 } from "../domain/theme";
 
-export type GameSource = "arena" | "chess.com" | "lichess" | "pgn";
+export type GameSource = "arena" | "chess.com" | "lichess" | "pgn" | "friend";
 export type ThemePreference = AppearanceMode;
 export type PieceSetStyle = PieceSetId | "staunton" | "neo" | "woodcut";
 export type BoardThemeStyle = BoardColorsId | "midnight" | "green";
