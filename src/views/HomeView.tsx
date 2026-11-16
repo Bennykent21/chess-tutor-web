@@ -455,72 +455,55 @@ function BotsPage({
   onDeleteBot: (id: string) => void;
   onWatchTwo: () => void;
 }) {
+  const tile = (bot: BotProfile, own: boolean) => (
+    <div key={bot.id} className="ct2-bot-tile">
+      <PictureTile
+        title={bot.name}
+        subtitle={`${bot.rating}, ${BOT_STYLES[bot.style].label}`}
+        fade="soft"
+        onClick={() => onPickBot(bot)}
+        ariaLabel={`Play ${bot.name}, ${bot.rating}`}
+        picture={<BotPicture src={botAssetUrl(bot.face)} />}
+      />
+      {own ? (
+        <div className="ct2-bot-tile-actions">
+          <button type="button" className="ct2-glass" style={{ width: 32, height: 32 }} aria-label={`Edit ${bot.name}`} onClick={() => onEditBot(bot)}>
+            <Pencil size={14} />
+          </button>
+          <button type="button" className="ct2-glass" style={{ width: 32, height: 32 }} aria-label={`Delete ${bot.name}`} onClick={() => onDeleteBot(bot.id)}>
+            <Trash2 size={14} />
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
   return (
-    <div className="ct-page">
-      <div className="ct-subpage-bar">
-        <button type="button" className="ct-icon-btn" onClick={onBack}>
-          <ArrowLeft size={18} /> <span>Home</span>
+    <div className="ct2-page" style={{ gap: 0 }}>
+      <header className="ct2-board-topbar">
+        <button type="button" className="ct2-icon-btn" aria-label="Back" onClick={onBack}>
+          <ArrowLeft size={22} />
         </button>
-        <h1>All Bots</h1>
-        <div className="ct-btn-row">
-          <button type="button" className="ct-btn ct-btn-secondary" onClick={onWatchTwo}>
-            <Eye size={16} /> Watch two
-          </button>
-          <button type="button" className="ct-btn ct-btn-primary" onClick={onBuildNew}>
-            <Plus size={16} /> Build bot
+        <h1>Play</h1>
+        <span style={{ width: 40 }} />
+      </header>
+      <div className="ct2-gutter">
+        <div className="ct2-pair-buttons">
+          <PrimaryButton onClick={onBuildNew}>
+            <Plus size={20} /> Build a bot
+          </PrimaryButton>
+          <button type="button" className="ct2-secondary" onClick={onWatchTwo}>
+            <Eye size={20} style={{ marginRight: 8 }} /> Watch two
           </button>
         </div>
+        {customBots.length > 0 ? (
+          <>
+            <SectionHeader title="My bots" />
+            <div className="ct2-bot-grid">{customBots.map(b => tile(b, true))}</div>
+          </>
+        ) : null}
+        <SectionHeader title="All bots" />
+        <div className="ct2-bot-grid ct2-enter">{roster.map(entry => tile(entry.profile, false))}</div>
       </div>
-
-      {customBots.length > 0 && (
-        <section className="ct-section">
-          <h2>My Bots</h2>
-          <div className="ct-roster-grid">
-            {customBots.map(bot => (
-              <div key={bot.id} className="ct-roster-card">
-                <button type="button" className="ct-roster-main" onClick={() => onPickBot(bot)}>
-                  <img src={botAssetUrl(bot.face)} alt={bot.name} className="ct-bot-avatar" />
-                  <div>
-                    <strong>{bot.name}</strong>
-                    <div className="mono-num">
-                      {bot.rating} · {BOT_STYLES[bot.style].label}
-                    </div>
-                  </div>
-                </button>
-                <div className="ct-roster-actions">
-                  <button type="button" className="ct-mini-btn" onClick={() => onEditBot(bot)} title="Edit">
-                    <Pencil size={14} />
-                  </button>
-                  <button type="button" className="ct-mini-btn" onClick={() => onDeleteBot(bot.id)} title="Delete">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="ct-section">
-        <h2>Chess Tutor Roster</h2>
-        <div className="ct-roster-grid">
-          {roster.map(entry => (
-            <div key={entry.profile.id} className="ct-roster-card">
-              <button type="button" className="ct-roster-main" onClick={() => onPickBot(entry.profile)}>
-                <img src={botAssetUrl(entry.profile.face)} alt={entry.profile.name} className="ct-bot-avatar" />
-                <div>
-                  <strong>{entry.profile.name}</strong>
-                  <div className="mono-num">
-                    {entry.profile.rating} · {BOT_STYLES[entry.profile.style].label}
-                  </div>
-                  <p className="ct-muted">{entry.tagline}</p>
-                </div>
-                <ChevronRight size={18} />
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
