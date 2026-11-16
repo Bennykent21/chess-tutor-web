@@ -4781,3 +4781,135 @@ button.ct-action-tile:active,
   height: calc(84px + env(safe-area-inset-bottom));
   flex-shrink: 0;
 }
+
+/* Lesson board */
+
+.ct2-step-bars {
+  display: flex;
+  gap: 4px;
+}
+
+.ct2-step-bars > span {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--track);
+}
+
+.ct2-step-bars > span.is-done {
+  background: var(--accent);
+}
+
+.ct2-step-bars > span.is-now {
+  background: var(--text2);
+}
+
+.ct2-lesson-words {
+  min-height: 72px;
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.ct2-lesson-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.ct2-tone {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ct2-tone.is-good {
+  background: var(--success);
+  color: var(--bg);
+}
+
+.ct2-tone.is-bad {
+  background: var(--error);
+  color: var(--bg);
+}
+
+.ct2-lesson-text {
+  font-family: "Schibsted Grotesk", "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 19px;
+  line-height: 24px;
+  color: var(--text);
+}
+
+.ct2-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-top: 24px;
+  gap: 8px;
+}
+
+.ct2-done-mascot {
+  width: 140px;
+  height: 140px;
+  object-fit: contain;
+}
+
+.ct2-accent {
+  color: var(--accent);
+}
+
+.ct2-done-bottom {
+  display: flex;
+  gap: 10px;
+}
+
+.ct2-done-bottom > .ct2-primary {
+  flex: 1;
+}
+
+.ct2-square-btn {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ct2-square-btn:disabled {
+  color: var(--text2);
+  opacity: 0.5;
+}
+
+/* Action pages keep their main button at the foot of the screen (CtActionPage). */
+.ct2-action-page {
+  min-height: calc(100dvh - 88px);
+}
+
+.ct2-action-bottom {
+  margin-top: auto;
+}
+
+.ct-app-shell.is-focus .ct2-action-page {
+  min-height: 100dvh;
+  padding-bottom: 0;
+}
+
+.ct-app-shell.is-focus .ct2-action-bottom {
+  bottom: 0;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}

@@ -5,6 +5,9 @@ import {
   ArrowLeftRight,
   Award,
   BookOpen,
+  Check,
+  SkipForward,
+  X,
   CheckCircle2,
   ChevronRight,
   HelpCircle,
@@ -31,7 +34,7 @@ import { parseUci, uciToSan } from "../lib/chessUtils";
 import { AppSettings } from "../lib/storage";
 import { BoardArrow, BoardHighlight, BoardHost } from "../components/BoardHost";
 import { CoachBubble } from "../components/CoachBubble";
-import { ArtTile, PlayMark, ScreenTitle, SectionHeader } from "../components/ct";
+import { ArtTile, ListRow, PlayMark, PrimaryButton, ScreenTitle, SectionHeader } from "../components/ct";
 
 export type LearnSubRoute =
   | { view: "hub" }
@@ -110,6 +113,7 @@ export function LearnView({
         onAwardXp={onAwardXp}
         onOpenLesson={nextId => setRoute({ view: "lesson", course: route.course, lessonId: nextId })}
         onOpenRelatedPuzzles={onOpenRelatedPuzzles}
+        onPractise={route.course.battleLine ? () => onOpenBattle(route.course.battleLine!) : undefined}
       />
     );
   }
@@ -396,7 +400,8 @@ function LessonPlayer({
   onProgress,
   onAwardXp,
   onOpenLesson,
-  onOpenRelatedPuzzles
+  onOpenRelatedPuzzles,
+  onPractise
 }: {
   course: LessonCourse;
   lesson: LessonItem;
@@ -408,6 +413,8 @@ function LessonPlayer({
   onAwardXp: (xp: number) => void;
   onOpenLesson: (lessonId: string) => void;
   onOpenRelatedPuzzles: (themes: string[], title: string) => void;
+  /** Opens Opening Battle on the course's line; absent for courses without one. */
+  onPractise?: () => void;
 }) {
   const startStep =
     initialRecord && !initialRecord.completed && initialRecord.stepIndex < lesson.steps.length
@@ -472,8 +479,10 @@ function LessonPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lesson.id]);
 
+  const [earnedXp, setEarnedXp] = useState(0);
   const finishLesson = () => {
     setLessonFinished(true);
+    setEarnedXp(xpAwardedRef.current ? 0 : 15);
     onProgress(lesson.steps.length - 1, true);
     if (!xpAwardedRef.current) {
       xpAwardedRef.current = true;
@@ -610,160 +619,159 @@ function LessonPlayer({
   }));
 
   const isLastStep = stepIdx >= lesson.steps.length - 1;
-  const pct = lesson.steps.length ? Math.round(((stepIdx + (solvedStep ? 1 : 0)) / lesson.steps.length) * 100) : 100;
+  const lessonIndex = course.lessons.findIndex(l => l.id === lesson.id);
+  const previousLesson = lessonIndex > 0 ? course.lessons[lessonIndex - 1] : null;
+  const quizSteps = lesson.steps.map((s, i) => (s.type === "quiz" ? i : -1)).filter(i => i >= 0);
+  const expectsMove = step?.type !== "explain" && !solvedStep;
+  const canAdvance = solvedStep || step?.type === "explain";
+  const label =
+    coachTone === "success" && step?.type !== "explain"
+      ? "Correct!"
+      : coachTone === "warning"
+      ? "Not quite"
+      : step?.type === "quiz"
+      ? `Challenge ${quizSteps.indexOf(stepIdx) + 1}/${quizSteps.length}`
+      : step?.type === "play"
+      ? orientation === "w"
+        ? "Your turn"
+        : "Your turn, you play Black"
+      : null;
 
-  return (
-    <div className="ct-focus-shell">
-      <header className="ct-focus-topbar">
-        <button type="button" className="ct-icon-btn" onClick={onBack}>
-          <ArrowLeft size={18} /> <span>Course</span>
-        </button>
-        <div className="ct-focus-title">
-          <strong>{lesson.title}</strong>
-          <small className="mono-num">
-            {course.title} · Step {stepIdx + 1} of {lesson.steps.length}
-          </small>
-        </div>
-        <div className="ct-focus-actions">
-          <button
-            type="button"
-            className="ct-icon-btn"
-            onClick={() => setOrientation(o => (o === "w" ? "b" : "w"))}
-            title="Flip board"
-          >
-            <ArrowLeftRight size={17} />
+  if (lessonFinished) {
+    const name = settings.playerName.trim();
+    return (
+      <div className="ct2-page ct2-action-page" style={{ gap: 0 }}>
+        <div className="ct2-back-bar">
+          <button type="button" className="ct2-icon-btn" aria-label="Back" onClick={onBack}>
+            <ArrowLeft size={22} />
           </button>
         </div>
+        <div className="ct2-gutter ct2-done">
+          <img src={`/assets/mascot/${settings.mascotId}_proud.svg`} alt="" className="ct2-done-mascot" />
+          <h1 className="ct2-display">{name ? `Well done, ${name}` : "Lesson complete"}</h1>
+          {earnedXp > 0 ? <div className="ct2-huge ct2-accent">+{earnedXp} XP</div> : <p className="ct2-caption">Practice round</p>}
+        </div>
+        <div className="ct2-gutter" style={{ marginTop: 24 }}>
+          {course.puzzleThemes && course.puzzleThemes.length > 0 ? (
+            <ListRow
+              title="Related puzzles"
+              icon="extension"
+              onClick={() => onOpenRelatedPuzzles(course.puzzleThemes!, `${course.title} puzzles`)}
+            />
+          ) : null}
+          {onPractise ? <ListRow title="Practise in Opening Battle" icon="flag" onClick={onPractise} /> : null}
+          {nextLesson ? <ListRow title="Play it again" icon="refresh" onClick={() => { setLessonFinished(false); loadStep(0); }} /> : null}
+        </div>
+        <div className="ct2-action-bottom ct2-done-bottom">
+          <button
+            type="button"
+            className="ct2-square-btn"
+            aria-label="Previous lesson"
+            disabled={!previousLesson}
+            onClick={() => previousLesson && onOpenLesson(previousLesson.id)}
+          >
+            <ArrowLeft size={22} />
+          </button>
+          {nextLesson ? (
+            <PrimaryButton onClick={() => onOpenLesson(nextLesson.id)}>Next: {nextLesson.title}</PrimaryButton>
+          ) : (
+            <PrimaryButton onClick={() => { setLessonFinished(false); loadStep(0); }}>Play it again</PrimaryButton>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ct2-board-screen">
+      <header className="ct2-board-topbar">
+        <button type="button" className="ct2-icon-btn" aria-label="Back" onClick={onBack}>
+          <ArrowLeft size={22} />
+        </button>
+        <h1>{lesson.title}</h1>
+        <span style={{ width: 40 }} />
       </header>
 
-      <div className="ct-board-workspace">
-        <div className="ct-board-column">
-          <BoardHost
-            fen={fen}
-            orientation={orientation}
-            interactive={!solvedStep && step?.type !== "explain" && !lessonFinished}
-            boardColorsId={settings.boardThemeId}
-            pieceSetId={settings.pieceSetId}
-            showCoordinates={settings.showCoordinates}
-            showLegalDots={settings.showLegalDots}
-            autoQueen={settings.autoQueen}
-            reduceMotion={settings.reduceMotion}
-            lastMove={lastMove}
-            arrows={stepArrows}
-            highlights={stepHighlights}
-            mistakeFlashSquare={mistakeSquare}
-            onMove={handleMove}
-          />
+      <div className="ct2-board-zone" aria-live="polite">
+        <div className="ct2-step-bars" aria-label={`Step ${stepIdx + 1} of ${lesson.steps.length}`}>
+          {lesson.steps.map((_, i) => (
+            <span key={i} className={i < stepIdx || (i === stepIdx && solvedStep && step?.type !== "explain") ? "is-done" : i === stepIdx ? "is-now" : ""} />
+          ))}
         </div>
+        <div className="ct2-lesson-words">
+          {label ? (
+            <div className="ct2-lesson-label">
+              {coachTone === "success" && step?.type !== "explain" ? (
+                <span className="ct2-tone is-good" aria-label="Correct">
+                  <Check size={14} strokeWidth={3} />
+                </span>
+              ) : coachTone === "warning" ? (
+                <span className="ct2-tone is-bad" aria-label="Not quite">
+                  <X size={14} strokeWidth={3} />
+                </span>
+              ) : null}
+              <span>{label}</span>
+            </div>
+          ) : null}
+          <p className="ct2-lesson-text">{coachText}</p>
+          {hintShown && step?.hint ? <p className="ct2-caption">{step.hint}</p> : null}
+        </div>
+      </div>
 
-        <aside className="ct-side-panel">
-          <div className="ct-progress-track">
-            <div className="ct-progress-fill" style={{ width: `${pct}%` }} />
-          </div>
+      <div className="ct2-board-area">
+        <BoardHost
+          fen={fen}
+          orientation={orientation}
+          interactive={!solvedStep && step?.type !== "explain"}
+          boardColorsId={settings.boardThemeId}
+          pieceSetId={settings.pieceSetId}
+          showCoordinates={settings.showCoordinates}
+          showLegalDots={settings.showLegalDots}
+          autoQueen={settings.autoQueen}
+          reduceMotion={settings.reduceMotion}
+          lastMove={lastMove}
+          arrows={stepArrows}
+          highlights={stepHighlights}
+          mistakeFlashSquare={mistakeSquare}
+          onMove={handleMove}
+        />
+        <div className="ct2-under-slot" />
+      </div>
 
-          <CoachBubble
-            mascotId={settings.mascotId}
-            mood={coachMood}
-            tone={coachTone}
-            sideLabel={step?.type === "quiz" ? "Challenge" : step?.type === "play" ? "Your Turn" : "Coach"}
-            message={coachText}
+      <div className="ct2-board-controls">
+        {stepIdx > 0 ? (
+          <button type="button" className="ct2-control" aria-label="Previous step" onClick={() => loadStep(stepIdx - 1)}>
+            <ArrowLeft size={20} />
+            <span>Back</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="ct2-control"
+            aria-label="Previous lesson"
+            disabled={!previousLesson}
+            onClick={() => previousLesson && onOpenLesson(previousLesson.id)}
           >
-            {hintShown && step?.hint && <p className="ct-hint-box">{step.hint}</p>}
-          </CoachBubble>
-
-          {/* Optional video walkthrough slot (D8 placeholder until hosted videos exist) */}
-          {stepIdx === 0 && (
-            <div className="ct-card ct-video-slot">
-              <Video size={16} className="ct-muted" />
-              <small className="ct-muted">Interactive walkthrough ready · Offline lesson</small>
-            </div>
-          )}
-
-          {lessonFinished && (
-            <div className="ct-card ct-result-banner is-win">
-              <div className="ct-badge-row">
-                <Award size={18} className="ct-accent-text" />
-                <strong>+15 XP Earned</strong>
-              </div>
-              <p className="ct-muted">Great work finishing &ldquo;{lesson.title}&rdquo;.</p>
-              <div className="ct-btn-row">
-                {nextLesson ? (
-                  <button
-                    type="button"
-                    className="ct-btn ct-btn-primary"
-                    onClick={() => onOpenLesson(nextLesson.id)}
-                  >
-                    <Play size={16} /> Next: {nextLesson.title}
-                  </button>
-                ) : (
-                  <button type="button" className="ct-btn ct-btn-primary" onClick={onBack}>
-                    Back to Course
-                  </button>
-                )}
-                {course.puzzleThemes && course.puzzleThemes.length > 0 && (
-                  <button
-                    type="button"
-                    className="ct-btn ct-btn-secondary"
-                    onClick={() => onOpenRelatedPuzzles(course.puzzleThemes!, `${course.title} puzzles`)}
-                  >
-                    <Sparkles size={16} /> Practise Puzzles
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="ct-thumb-bar">
-            <button
-              type="button"
-              className="ct-btn ct-btn-ghost"
-              disabled={stepIdx === 0}
-              onClick={() => loadStep(Math.max(0, stepIdx - 1))}
-            >
-              <ArrowLeft size={16} /> Prev
-            </button>
-
-            {!solvedStep && step?.type !== "explain" && (
-              <>
-                <button
-                  type="button"
-                  className="ct-btn ct-btn-secondary"
-                  onClick={() => setHintShown(true)}
-                >
-                  <Lightbulb size={16} /> Hint
-                </button>
-                <button
-                  type="button"
-                  className="ct-btn ct-btn-ghost"
-                  onClick={() => loadStep(stepIdx)}
-                >
-                  <RotateCcw size={16} /> Reset
-                </button>
-              </>
-            )}
-
-            {solvedStep && !lessonFinished && (
-              <button
-                type="button"
-                className="ct-btn ct-btn-primary"
-                onClick={() => {
-                  if (isLastStep) finishLesson();
-                  else loadStep(stepIdx + 1, fen);
-                }}
-              >
-                {isLastStep ? (
-                  <>
-                    <CheckCircle2 size={16} /> Finish Lesson
-                  </>
-                ) : (
-                  <>
-                    Continue <ChevronRight size={16} />
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        </aside>
+            <ArrowLeft size={20} />
+            <span>Back</span>
+          </button>
+        )}
+        <button type="button" className="ct2-control" disabled={!expectsMove || hintShown} onClick={() => setHintShown(true)}>
+          <Lightbulb size={20} />
+          <span>Hint</span>
+        </button>
+        <button
+          type="button"
+          className="ct2-control"
+          disabled={!canAdvance}
+          onClick={() => {
+            if (isLastStep) finishLesson();
+            else loadStep(stepIdx + 1, fen);
+          }}
+        >
+          {isLastStep ? <Check size={20} /> : <SkipForward size={20} />}
+          <span>{isLastStep ? "Finish" : "Next"}</span>
+        </button>
       </div>
     </div>
   );
