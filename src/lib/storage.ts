@@ -1,3 +1,5 @@
+import type { CardReview, CardState, LevelProgress } from "../domain/repertoire";
+import type { PositionRecord } from "../domain/trainPositions";
 import type { BotProfile, ChatLevel } from "../domain/bots";
 import type { LessonProgressRecord } from "../domain/lessons";
 import type {
@@ -243,6 +245,7 @@ const KEYS = {
   ATTEMPTS: "chess-tutor.attempts.v1",
   GAME_MISTAKES: "chess-tutor.game-mistakes.v1",
   APP_SETTINGS: "chess-tutor.app-settings.v2",
+  TRAIN: "chess-tutor.train.v1",
   CUSTOM_BOTS: "chess-tutor.custom-bots.v1",
   LESSON_PROGRESS: "chess-tutor.lesson-progress.v2",
   PUZZLE_STORE: "chess-tutor.puzzle-store.v2",
@@ -620,6 +623,7 @@ export function exportAllLocalData(): string {
       arenaGames: loadGameHistory(),
       linkedAccounts: loadLinkedAccounts(),
       importedGames: loadImportedAccountGames(),
+      train: loadTrainStore(),
       gameAnalyses: loadCachedAnalyses(),
       reportedIssues: loadReportedIssues()
     },
@@ -643,10 +647,31 @@ export function importAllLocalData(jsonText: string): { ok: boolean; message: st
     if (Array.isArray(data.arenaGames)) writeJson(KEYS.GAMES, data.arenaGames);
     if (Array.isArray(data.linkedAccounts)) writeJson(KEYS.LINKED_ACCOUNTS, data.linkedAccounts);
     if (Array.isArray(data.importedGames)) writeJson(KEYS.IMPORTED_GAMES, data.importedGames);
+    if (data.train && typeof data.train === "object") writeJson(KEYS.TRAIN, { ...defaultTrainStore, ...data.train });
     if (data.gameAnalyses) writeJson(KEYS.GAME_ANALYSES, data.gameAnalyses);
     if (Array.isArray(data.reportedIssues)) writeJson(KEYS.REPORTED_ISSUES, data.reportedIssues);
     return { ok: true, message: "Backup imported successfully." };
   } catch (err: unknown) {
     return { ok: false, message: err instanceof Error ? err.message : "Could not parse backup file." };
   }
+}
+
+/* Train: opening cards, their reviews, level unlocks and endgame/middlegame results ------------- */
+
+export interface TrainStore {
+  cards: Record<string, CardState>;
+  reviews: CardReview[];
+  levels: Record<string, LevelProgress>;
+  positions: Record<string, PositionRecord>;
+}
+
+export const defaultTrainStore: TrainStore = { cards: {}, reviews: [], levels: {}, positions: {} };
+
+export function loadTrainStore(): TrainStore {
+  return { ...defaultTrainStore, ...readJson<Partial<TrainStore>>(KEYS.TRAIN, defaultTrainStore) };
+}
+
+export function saveTrainStore(store: TrainStore): void {
+  // Keep the review log bounded: mastery reads the last 50 per level.
+  writeJson(KEYS.TRAIN, { ...store, reviews: store.reviews.slice(-2000) });
 }

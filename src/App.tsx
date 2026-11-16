@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, Home, Puzzle as PuzzleIcon, User } from "lucide-react";
+import { BookOpen, Home, Puzzle as PuzzleIcon, Target, User } from "lucide-react";
 import { LessonCourse, LessonProgressRecord, loadLessonLibrary } from "./domain/lessons";
 import { OpeningTree, loadOpeningTree } from "./domain/openings";
 import {
@@ -49,19 +49,24 @@ import {
   saveOnboarding,
   savePuzzleStore,
   saveReportedIssue,
-  saveReviewSchedule
+  saveReviewSchedule,
+  TrainStore,
+  loadTrainStore,
+  saveTrainStore
 } from "./lib/storage";
 import { HomeSubRoute, HomeView } from "./views/HomeView";
 import { LearnSubRoute, LearnView } from "./views/LearnView";
 import { MistakeRunItem, PuzzlesSubRoute, PuzzlesView, gameMistakeToPuzzle } from "./views/PuzzlesView";
 import { AccountSubRoute, AccountView } from "./views/AccountView";
 import { PlayBoardLaunch, PlayBoardView } from "./views/PlayBoardView";
+import { TrainSubRoute, TrainView, isTrainFocus } from "./views/TrainView";
 
-type MainTab = "home" | "learn" | "puzzles" | "account";
+type MainTab = "home" | "learn" | "train" | "puzzles" | "account";
 
 const NAV_ITEMS: { id: MainTab; label: string; icon: typeof Home }[] = [
   { id: "home", label: "Home", icon: Home },
   { id: "learn", label: "Learn", icon: BookOpen },
+  { id: "train", label: "Train", icon: Target },
   { id: "puzzles", label: "Puzzles", icon: PuzzleIcon },
   { id: "account", label: "Account", icon: User }
 ];
@@ -70,6 +75,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<MainTab>("home");
   const [homeRoute, setHomeRoute] = useState<HomeSubRoute>({ view: "hub" });
   const [learnRoute, setLearnRoute] = useState<LearnSubRoute>({ view: "hub" });
+  const [trainRoute, setTrainRoute] = useState<TrainSubRoute>({ view: "hub" });
+  const [trainStore, setTrainStore] = useState<TrainStore>(() => loadTrainStore());
   const [puzzlesRoute, setPuzzlesRoute] = useState<PuzzlesSubRoute>({ view: "home" });
   const [accountRoute, setAccountRoute] = useState<AccountSubRoute>({ view: "overview" });
   const [playLaunch, setPlayLaunch] = useState<PlayBoardLaunch | null>(null);
@@ -350,8 +357,18 @@ export default function App() {
     setPuzzlesRoute({ view: "player", config: { kind: "mistakes", items, title: "Mistakes Review" } });
   };
 
+  const handleUpdateTrainStore = (change: (prev: TrainStore) => TrainStore) => {
+    setTrainStore(prev => {
+      const next = change(prev);
+      saveTrainStore(next);
+      return next;
+    });
+  };
+
   const handleResetAllData = () => {
     clearLocalData();
+    setTrainStore(loadTrainStore());
+    setTrainRoute({ view: "hub" });
     setSettings(loadAppSettings());
     setOnboarding(loadOnboarding());
     setPuzzleStore(loadPuzzleStore());
@@ -369,6 +386,7 @@ export default function App() {
   };
 
   const handleDataImported = () => {
+    setTrainStore(loadTrainStore());
     setSettings(loadAppSettings());
     setOnboarding(loadOnboarding());
     setPuzzleStore(loadPuzzleStore());
@@ -388,6 +406,7 @@ export default function App() {
   const isBoardFocus =
     playLaunch !== null ||
     (activeTab === "learn" && learnRoute.view === "lesson") ||
+    (activeTab === "train" && isTrainFocus(trainRoute)) ||
     (activeTab === "puzzles" && puzzlesRoute.view === "player") ||
     (activeTab === "account" && accountRoute.view === "review");
 
@@ -396,6 +415,7 @@ export default function App() {
     if (tab === activeTab) {
       if (tab === "home") setHomeRoute({ view: "hub" });
       if (tab === "learn") setLearnRoute({ view: "hub" });
+      if (tab === "train") setTrainRoute({ view: "hub" });
       if (tab === "puzzles") setPuzzlesRoute({ view: "home" });
       if (tab === "account") setAccountRoute({ view: "overview" });
     } else {
@@ -516,6 +536,20 @@ export default function App() {
               setPuzzlesRoute({ view: "player", config: { kind: "theme", puzzles: related, title } });
             }}
           />
+        ) : activeTab === "train" ? (
+          <TrainView
+            route={trainRoute}
+            setRoute={setTrainRoute}
+            settings={settings}
+            isDark={isDarkAppearance}
+            store={trainStore}
+            onUpdateStore={handleUpdateTrainStore}
+            effectiveRating={effectiveRating}
+            onOpenBattle={openingName => {
+              setActiveTab("home");
+              setHomeRoute({ view: "battle", presetOpeningName: openingName });
+            }}
+          />
         ) : activeTab === "puzzles" ? (
           <PuzzlesView
             route={puzzlesRoute}
@@ -594,7 +628,7 @@ export default function App() {
       </main>
 
       {!isBoardFocus && (
-        <nav className="ct-bottom-nav" aria-label="Bottom navigation">
+        <nav className="ct-bottom-nav" aria-label="Bottom navigation" style={{ ["--nav-count" as string]: NAV_ITEMS.length }}>
           {NAV_ITEMS.map(item => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;

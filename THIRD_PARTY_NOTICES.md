@@ -6,6 +6,8 @@ Chess Tutor Web is distributed under GPL-3.0-compatible terms and ships the foll
 - **chess.js** — BSD-2-Clause License. Move validation, FEN, and PGN parsing.
 - **Lichess Puzzle Database (subset of 13,485 puzzles with alternative solutions)** — Creative Commons CC0 1.0 Public Domain Dedication.
 - **lichess-org/chess-openings (3,865 ECO lines)** — Creative Commons CC0 1.0 Public Domain Dedication.
+- **Opening repertoires (Italian Game, Caro-Kann Defence; `public/data/repertoire/`)** — move counts from the Lichess opening explorer (Lichess game database, CC0 1.0); trees and Stockfish 19 verdicts built by the Chess Tutor app's `tools/build_repertoire.py`. The selection and notes are original, GPL-3.0 with the app.
+- **Train positions (`public/data/positions/positions.json`)** — original selection from the Chess Tutor app, every goal checked with Stockfish 19; GPL-3.0 with the app.
 - **Piece Sets**:
   - Classic (`cburnett`) — Colin M.L. Burnett via `lichess-org/lila` (GPLv2+).
   - Merida (`merida`) — Armando Hernandez Marroquin via `lichess-org/lila` (GPLv2+).
