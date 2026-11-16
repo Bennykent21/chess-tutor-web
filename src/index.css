@@ -3929,3 +3929,90 @@ button.ct2-art-tile:hover .ct2-art-img {
   height: 132px;
   object-fit: contain;
 }
+
+/* From your games */
+
+.ct2-count {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ct2-body-muted {
+  font-size: 16px;
+  line-height: 23px;
+  color: var(--text2);
+}
+
+.ct2-finding {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--text);
+}
+
+.ct2-finding.is-button {
+  border: 0;
+  text-align: left;
+  gap: 6px;
+  width: 100%;
+}
+
+.ct2-finding-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ct2-thumb.ct2-thumb-big {
+  width: 76px;
+  height: 76px;
+}
+
+.ct2-finding-figure {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.ct2-finding-figure .ct2-caption {
+  padding-bottom: 8px;
+}
+
+.ct2-error-word {
+  color: var(--error);
+  font-weight: 600;
+}
+
+.ct2-finding-text {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text2);
+}
+
+.ct2-finding-text strong {
+  color: var(--text);
+}
+
+.ct2-finding-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ct2-finding-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ct2-success-track {
+  height: 6px;
+  display: block;
+}
+
+.ct2-success-track > span {
+  display: block;
+  height: 100%;
+  background: var(--success);
+}

@@ -52,6 +52,11 @@ import {
   sideOf
 } from "../domain/trainPositions";
 import { analysePosition } from "../lib/engine";
+import type { GameReviewReport } from "../domain/account";
+import { ENDINGS, FindingGame, GameFinding, findingGameOf, gameFindings } from "../domain/gameFindings";
+
+/** A saved or imported game, as "From your games" reads it. */
+type FindingSource = Parameters<typeof findingGameOf>[0];
 import { playCue, triggerHaptic } from "../lib/audio";
 import { AppSettings, TrainStore } from "../lib/storage";
 import { BoardArrow, BoardHighlight, BoardHost } from "../components/BoardHost";
@@ -68,7 +73,8 @@ export type TrainSubRoute =
   | { view: "opening"; bookId: string }
   | { view: "run"; spec: TrainRunSpec; back: TrainSubRoute }
   | { view: "positions"; kind: PositionKind }
-  | { view: "position-run"; setId: string };
+  | { view: "position-run"; setId: string }
+  | { view: "from-games" };
 
 export function isTrainFocus(route: TrainSubRoute): boolean {
   return route.view === "run" || route.view === "position-run";
@@ -107,7 +113,9 @@ export function TrainView({
   store,
   onUpdateStore,
   effectiveRating,
-  onOpenBattle
+  onOpenBattle,
+  games,
+  reviews
 }: {
   route: TrainSubRoute;
   setRoute: (r: TrainSubRoute) => void;
@@ -117,6 +125,9 @@ export function TrainView({
   onUpdateStore: (change: (prev: TrainStore) => TrainStore) => void;
   effectiveRating: number;
   onOpenBattle: (openingName?: string) => void;
+  /** Every saved and imported game, for "From your games". */
+  games: FindingSource[];
+  reviews: Record<string, GameReviewReport>;
 }) {
   const [books, setBooks] = useState<RepertoireBook[] | null>(null);
   const [sets, setSets] = useState<PositionSet[] | null>(null);
@@ -127,6 +138,21 @@ export function TrainView({
 
   const indexes = useMemo(() => (books ?? []).map(b => new RepertoireIndex(b)), [books]);
   const now = Date.now();
+
+  // "From your games" is worked out after the page has drawn, and again when games change.
+  const [findings, setFindings] = useState<{ games: number; reviewed: number; list: GameFinding[] } | null>(null);
+  useEffect(() => {
+    if (!books) return;
+    const timer = window.setTimeout(() => {
+      const list = games.map(findingGameOf).filter((g): g is FindingGame => g !== null);
+      setFindings({
+        games: list.length,
+        reviewed: list.filter(g => reviews[g.id]).length,
+        list: gameFindings(list, books, reviews)
+      });
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [books, games, reviews]);
 
   const bookUis: BookUi[] = useMemo(() => {
     const cards = Object.values(store.cards);
@@ -207,6 +233,25 @@ export function TrainView({
         settings={settings}
         onSave={(id, record) => onUpdateStore(prev => ({ ...prev, positions: { ...prev.positions, [id]: record } }))}
         onBack={() => setRoute({ view: "positions", kind: set.kind })}
+      />
+    );
+  }
+
+  if (route.view === "from-games") {
+    return (
+      <FromYourGamesPage
+        findings={findings}
+        settings={settings}
+        onBack={() => setRoute({ view: "hub" })}
+        onTrainLine={(bookId, path) => {
+          const ui = bookUis.find(b => b.book.id === bookId);
+          if (ui && ui.fresh > 0) {
+            setRoute({ view: "run", spec: { kind: "learn", bookId, within: path }, back: { view: "from-games" } });
+          } else {
+            setRoute({ view: "opening", bookId });
+          }
+        }}
+        onTrainEnding={setId => setRoute({ view: "position-run", setId })}
       />
     );
   }
@@ -385,6 +430,123 @@ export function TrainView({
           }
           onClick={() => onOpenBattle()}
         />
+        <ListRow
+          title="From your games"
+          subtitle={findings && findings.games === 0 ? "Play or import games to see your patterns" : undefined}
+          leading={
+            <span className="ct2-list-icon">
+              <MetalIcon icon="analytics" size={36} />
+            </span>
+          }
+          trailing={findings && findings.list.length > 0 ? <strong className="ct2-count">{findings.list.length}</strong> : undefined}
+          onClick={() => setRoute({ view: "from-games" })}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* From your games ------------------------------------------------------------------ */
+
+function FromYourGamesPage({
+  findings,
+  settings,
+  onBack,
+  onTrainLine,
+  onTrainEnding
+}: {
+  findings: { games: number; reviewed: number; list: GameFinding[] } | null;
+  settings: AppSettings;
+  onBack: () => void;
+  onTrainLine: (bookId: string, path: string[]) => void;
+  onTrainEnding: (setId: string) => void;
+}) {
+  return (
+    <div className="ct2-page" style={{ gap: 0 }}>
+      <BackBar onBack={onBack} />
+      <ScreenTitle title="From your games" />
+      <div className="ct2-gutter" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {findings ? (
+          <p className="ct2-caption">
+            {findings.games} game{findings.games === 1 ? "" : "s"}
+            {findings.reviewed > 0 ? ` · ${findings.reviewed} reviewed` : ""}
+          </p>
+        ) : (
+          <p className="ct2-caption">Looking through your games…</p>
+        )}
+        {findings && findings.list.length === 0 ? (
+          <p className="ct2-body-muted">
+            {findings.games === 0
+              ? "Import your games in Account, or play a few here."
+              : "Nothing comes back yet. A slip shows here once it repeats."}
+          </p>
+        ) : null}
+        {findings?.list.map((f, i) => {
+          if (f.kind === "line-slip") {
+            return (
+              <div key={`s${i}`} className="ct2-card ct2-finding">
+                <div className="ct2-finding-top">
+                  <span className="ct2-thumb ct2-thumb-big">
+                    <BoardPicture
+                      fen={f.fen}
+                      boardThemeId={settings.boardThemeId}
+                      pieceSet={settings.pieceSetId}
+                      whiteAtBottom={f.side === "w"}
+                      aspect={1}
+                      zoom={1}
+                    />
+                  </span>
+                  <div>
+                    <div className="ct2-caption">
+                      {f.bookTitle}
+                      {f.after ? ` · after ${f.after}` : ""}
+                    </div>
+                    <div className="ct2-finding-figure">
+                      <span className="ct2-huge">
+                        {f.misses}/{f.reached}
+                      </span>
+                      <span className="ct2-caption">
+                        you played <strong className="ct2-error-word">{f.played}</strong>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <p className="ct2-finding-text">
+                  {f.note ? `${f.note} ` : ""}
+                  <strong>{f.right}</strong> is the line.
+                </p>
+                <PrimaryButton onClick={() => onTrainLine(f.bookId, f.path)}>Train it</PrimaryButton>
+              </div>
+            );
+          }
+          if (f.kind === "ending") {
+            const meta = ENDINGS[f.ending];
+            return (
+              <button key={`e${i}`} type="button" className="ct2-card ct2-finding is-button" onClick={() => onTrainEnding(meta.setId)}>
+                <strong className="ct2-finding-title">{meta.title}</strong>
+                <span className="ct2-caption">
+                  Won {f.won} of {f.reached} a pawn or more up
+                </span>
+                <span className="ct2-thin-track ct2-success-track">
+                  <span style={{ width: `${(f.won / f.reached) * 100}%` }} />
+                </span>
+              </button>
+            );
+          }
+          return (
+            <div key={`m${i}`} className="ct2-card ct2-finding">
+              <div className="ct2-finding-row">
+                <strong className="ct2-finding-title">{[f.opening, f.after].filter(Boolean).join(" · ") || f.played}</strong>
+                <span className="ct2-caption">
+                  {f.times} of {f.reached} games
+                </span>
+              </div>
+              <span className="ct2-caption">
+                You played {f.played}.{f.better ? ` ${f.better} was better.` : ""}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
