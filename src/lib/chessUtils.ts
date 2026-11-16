@@ -74,27 +74,6 @@ export function uciToSan(fen: string, uci: string): string {
   }
 }
 
-export function uciToPieceName(fen: string, uci: string): string {
-  try {
-    const game = new Chess(fen);
-    const parsed = parseUci(uci);
-    if (!parsed) return "piece";
-    const piece = game.get(parsed.from);
-    if (!piece) return "piece";
-    const names: Record<PieceSymbol, string> = {
-      p: "pawn",
-      n: "knight",
-      b: "bishop",
-      r: "rook",
-      q: "queen",
-      k: "king"
-    };
-    return names[piece.type];
-  } catch {
-    return "piece";
-  }
-}
-
 /**
  * Computes captured pieces strictly from the actual move list (never from missing pieces on custom FENs).
  */

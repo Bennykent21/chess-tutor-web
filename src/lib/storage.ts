@@ -455,15 +455,6 @@ export function clearLocalData() {
   }
 }
 
-export function loadProgress(): TutorProgress {
-  const parsed = readJson<Partial<TutorProgress>>(KEYS.PROGRESS, defaultProgress);
-  return { ...defaultProgress, ...parsed };
-}
-
-export function saveProgress(progress: TutorProgress) {
-  writeJson(KEYS.PROGRESS, progress);
-}
-
 export function touchActivity(progress: TutorProgress): TutorProgress {
   const today = localDateKey();
   if (progress.lastActiveDate === today) return progress;
@@ -584,16 +575,6 @@ export function applyReviewResult(schedule: TutorReviewItem[], puzzleKey: string
 
 export function countDueReviews(schedule: TutorReviewItem[], now = new Date()): number {
   return schedule.filter(item => new Date(item.dueAt).getTime() <= now.getTime()).length;
-}
-
-export function loadAttemptHistory(): TutorAttemptRecord[] {
-  const parsed = readJson<TutorAttemptRecord[]>(KEYS.ATTEMPTS, []);
-  return Array.isArray(parsed) ? parsed.slice(0, 150) : [];
-}
-
-export function saveAttempt(record: TutorAttemptRecord) {
-  const current = loadAttemptHistory();
-  writeJson(KEYS.ATTEMPTS, [record, ...current].slice(0, 150));
 }
 
 export function loadGameMistakes(): TutorGameMistake[] {

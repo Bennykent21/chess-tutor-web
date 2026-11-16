@@ -518,10 +518,6 @@ export default function App() {
             onOpenMistakesReview={handleOpenMistakesReview}
             isDark={isDarkAppearance}
             onSaveGame={handleSaveGame}
-            onOpenHealthCheck={() => {
-              setActiveTab("account");
-              setAccountRoute({ view: "settings" });
-            }}
           />
         ) : activeTab === "learn" ? (
           <LearnView

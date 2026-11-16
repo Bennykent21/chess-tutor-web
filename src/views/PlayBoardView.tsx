@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Chess, Square } from "chess.js";
+import { Chess } from "chess.js";
 import {
   ArrowLeft,
   ArrowLeftRight,
@@ -25,11 +25,10 @@ import {
 import {
   BattlePlan,
   OpeningTree,
-  movesToUciList,
   repetitionKey
 } from "../domain/openings";
 import { botAssetUrl } from "../domain/theme";
-import { calculateCapturesFromMoves, parseUci, toUci, uciToSan } from "../lib/chessUtils";
+import { calculateCapturesFromMoves, parseUci, uciToSan } from "../lib/chessUtils";
 import { EngineLine, analyseMultiPV } from "../lib/engine";
 import { playCue, triggerHaptic } from "../lib/audio";
 import { AppSettings, ActiveGameSnapshot, TutorGameRecord, generateUuid, saveActiveGame } from "../lib/storage";

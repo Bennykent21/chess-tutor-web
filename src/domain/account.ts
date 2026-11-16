@@ -1,5 +1,5 @@
 import { Chess } from "chess.js";
-import { parseUci, toUci } from "../lib/chessUtils";
+import { parseUci } from "../lib/chessUtils";
 import { StoredAccountGame, TutorGameRecord } from "../lib/storage";
 import { PuzzleHistoryEntry } from "../lib/storage";
 import { displayThemeName, isKnownTheme } from "./puzzles";

@@ -276,15 +276,6 @@ textarea:focus-visible {
   font-size: 0.88rem;
 }
 
-.ct-eyebrow {
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  color: var(--accent);
-  text-transform: uppercase;
-  margin-bottom: 2px;
-}
-
 .ct-kicker {
   display: inline-flex;
   align-items: center;
@@ -484,33 +475,6 @@ textarea:focus-visible {
   }
 }
 
-.ct-page-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.ct-header-stats {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.ct-stat-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  font-size: 0.86rem;
-}
-
 .ct-subpage-bar {
   display: flex;
   flex-wrap: wrap;
@@ -630,19 +594,6 @@ textarea:focus-visible {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.ct-text-btn {
-  border: 0;
-  background: transparent;
-  color: var(--accent);
-  font-weight: 600;
-  font-size: 0.88rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 36px;
-  padding: 0 4px;
 }
 
 .ct-icon-btn {
@@ -940,103 +891,10 @@ input[type="range"] {
   }
 }
 
-.ct-hero-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.ct-hero-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-}
-
-.ct-hero-bot-img {
-  width: 82px;
-  height: 82px;
-  border-radius: 14px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.ct-action-tile {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  text-align: left;
-}
-
-.ct-action-tile-body {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.ct-action-tile-body small {
-  color: var(--text2);
-  font-size: 0.84rem;
-}
-
-.ct-bot-carousel {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-}
-
-.ct-bot-card {
-  flex: 0 0 124px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 12px 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  text-align: center;
-}
-
-.ct-bot-card small {
-  color: var(--text2);
-  font-size: 0.78rem;
-}
-
-.ct-bot-avatar {
-  width: 54px;
-  height: 54px;
-  border-radius: 12px;
-  object-fit: cover;
-}
-
 .ct-bot-avatar-lg {
   width: 72px;
   height: 72px;
   border-radius: 16px;
-}
-
-.ct-bot-add-circle {
-  width: 54px;
-  height: 54px;
-  border-radius: 999px;
-  background: var(--raised);
-  border: 1px dashed var(--line);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent);
 }
 
 .ct-modes-grid {
@@ -1070,55 +928,6 @@ input[type="range"] {
 .ct-mode-tile small {
   color: var(--text2);
   font-size: 0.84rem;
-}
-
-.ct-mode-art {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.ct-roster-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-}
-
-@media (min-width: 768px) {
-  .ct-roster-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.ct-roster-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  padding: 12px;
-  gap: 10px;
-}
-
-.ct-roster-main {
-  flex: 1;
-  border: 0;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-align: left;
-}
-
-.ct-roster-main > div {
-  flex: 1;
-}
-
-.ct-roster-actions {
-  display: flex;
-  gap: 6px;
 }
 
 .ct-setup-bot-head {
@@ -1243,65 +1052,6 @@ input[type="range"] {
    Learn Hub & Courses
    ========================================================================== */
 
-.ct-continue-inline {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 8px;
-  border-top: 1px solid var(--line);
-}
-
-.ct-learn-cat-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-}
-
-@media (min-width: 640px) {
-  .ct-learn-cat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1024px) {
-  .ct-learn-cat-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-.ct-learn-cat-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  overflow: hidden;
-  padding: 0;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-}
-
-.ct-learn-cat-art {
-  width: 100%;
-  height: 132px;
-  object-fit: cover;
-}
-
-.ct-learn-cat-body {
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.ct-learn-cat-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
 .ct-course-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -1401,53 +1151,9 @@ input[type="range"] {
   color: var(--accent);
 }
 
-.ct-video-slot {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-}
-
-.ct-hint-box {
-  margin-top: 6px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--raised);
-  font-size: 0.86rem;
-}
-
 /* ==========================================================================
    Puzzles Home (5 Worlds / Winding Path)
    ========================================================================== */
-
-.ct-puzzles-top-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-}
-
-@media (min-width: 768px) {
-  .ct-puzzles-top-grid {
-    grid-template-columns: 1.2fr 1fr;
-  }
-}
-
-.ct-xp-inline {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.ct-puzzles-cta-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 10px;
-}
 
 .ct-worlds-stack {
   display: flex;
@@ -1542,12 +1248,6 @@ input[type="range"] {
   }
 }
 
-.ct-report-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
 /* ==========================================================================
    Account, Review, Analytics & Settings
    ========================================================================== */
@@ -1582,42 +1282,6 @@ input[type="range"] {
 
 .ct-stat-tile > span {
   font-size: 0.78rem;
-}
-
-.ct-rank-ladder {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-@media (min-width: 640px) {
-  .ct-rank-ladder {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-}
-
-.ct-rank-item {
-  background: var(--raised);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 10px 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  text-align: center;
-}
-
-.ct-rank-item.is-current {
-  border-color: var(--accent);
-  background: var(--navPill);
-}
-
-.ct-rank-item img {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  object-fit: cover;
 }
 
 .ct-linked-list {
@@ -1666,106 +1330,6 @@ input[type="range"] {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.ct-game-row {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 12px 14px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-align: left;
-}
-
-.ct-game-row-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.ct-game-row-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
-.ct-result-pill {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.84rem;
-  flex-shrink: 0;
-}
-
-.ct-result-pill.is-w {
-  background: var(--success);
-  color: #ffffff;
-}
-
-.ct-result-pill.is-l {
-  background: var(--error);
-  color: #ffffff;
-}
-
-.ct-result-pill.is-d {
-  background: var(--raised);
-  border: 1px solid var(--line);
-  color: var(--text2);
-}
-
-.ct-acc-badge {
-  padding: 4px 8px;
-  border-radius: 8px;
-  background: var(--navPill);
-  color: var(--accent);
-  font-weight: 700;
-  font-size: 0.8rem;
-}
-
-.ct-badges-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-}
-
-@media (min-width: 640px) {
-  .ct-badges-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.ct-badge-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 12px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.ct-badge-card.is-locked {
-  opacity: 0.58;
-}
-
-.ct-badge-medal {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-  flex-shrink: 0;
-}
-
-.ct-badge-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 
 .ct-eval-graph-wrap {
@@ -1965,14 +1529,6 @@ input[type="range"] {
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-
-.ct-licence-item {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
 /* ==========================================================================
@@ -2472,51 +2028,6 @@ input[type="range"] {
 
 .ct-result-banner.is-loss {
   border-color: var(--error);
-}
-
-.ct-promo-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-
-.ct-promo-dialog {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.ct-promo-options {
-  display: flex;
-  gap: 10px;
-}
-
-.ct-promo-choice {
-  width: 60px;
-  height: 60px;
-  padding: 8px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: var(--raised);
-}
-
-.ct-hide-mobile {
-  display: none;
-}
-
-@media (min-width: 768px) {
-  .ct-hide-mobile {
-    display: inline-flex;
-  }
 }
 
 /* ==========================================================================
@@ -4617,11 +4128,6 @@ button.ct-action-tile:active,
   border-style: solid;
   border-width: 8px 10px 8px 0;
   border-color: transparent var(--surface) transparent transparent;
-}
-
-.ct2-bubble-name {
-  font-size: 13px;
-  color: var(--accent);
 }
 
 /* Board screens: the zone above the board takes the spare height and stands on the board,

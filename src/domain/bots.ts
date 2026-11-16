@@ -1,4 +1,4 @@
-import { Chess, PieceSymbol, Square } from "chess.js";
+import { Chess, PieceSymbol } from "chess.js";
 import { toUci } from "../lib/chessUtils";
 
 export type BotStyleId = "balanced" | "attacker" | "defender" | "gambiteer" | "grinder" | "trickster";
@@ -95,10 +95,6 @@ export const BOT_ROSTER: RosterBot[] = [
   makeBot("titan", "Titan", 2500, "attacker", "dragon", "Masters fear my fire. Do you?", ["Ruy Lopez", "Queen's Gambit Declined"], ["Sicilian Defense", "Grünfeld Defense"]),
   makeBot("bolt", "Bolt", 3000, "balanced", "robot", "I am Stockfish at full strength. Good luck.", [], [], "never")
 ];
-
-export function getRosterBot(id: string): RosterBot | undefined {
-  return BOT_ROSTER.find(b => b.profile.id === id);
-}
 
 export function closestRosterBot(rating: number): RosterBot {
   let best = BOT_ROSTER[0];

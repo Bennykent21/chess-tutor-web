@@ -308,33 +308,6 @@ export async function analysePosition(
   };
 }
 
-export async function findBestMove(
-  fen: string,
-  options: { depth?: number; skillLevel?: number; movetimeMs?: number; uciElo?: number } = {}
-): Promise<string | null> {
-  try {
-    return (await analysePosition(fen, options)).bestMove;
-  } catch {
-    return null;
-  }
-}
-
-export function disposeEngine() {
-  active?.reject(new Error("Stockfish engine disposed."));
-  queued?.reject(new Error("Stockfish engine disposed."));
-  active = null;
-  queued = null;
-  worker?.terminate();
-  worker = null;
-  readyPromise = null;
-  readyResolve = null;
-  readyReject = null;
-  if (workerUrl) {
-    URL.revokeObjectURL(workerUrl);
-    workerUrl = null;
-  }
-}
-
 export type EngineHealthReport = {
   ok: boolean;
   engineName: string;
@@ -382,5 +355,3 @@ export async function runEngineHealthCheck(): Promise<EngineHealthReport> {
     };
   }
 }
-
-export const runEngineSelfTest = runEngineHealthCheck;

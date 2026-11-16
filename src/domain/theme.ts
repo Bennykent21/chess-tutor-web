@@ -79,10 +79,6 @@ export function getBoardColors(id: string | undefined): BoardColorTheme {
   return BOARD_COLORS.find(b => b.id === id) ?? BOARD_COLORS[0];
 }
 
-export function getPieceSet(id: string | undefined): PieceSetMeta {
-  return PIECE_SETS.find(p => p.id === id) ?? PIECE_SETS[0];
-}
-
 export function getMascot(id: string | undefined): MascotInfo {
   return MASCOTS.find(m => m.id === id) ?? MASCOTS[0];
 }

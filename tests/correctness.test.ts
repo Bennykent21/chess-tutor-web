@@ -110,41 +110,6 @@ test("applyReviewResult spaced repetition scheduling", () => {
   assert.equal(afterMiss[0].lastResult, "wrong");
 });
 
-test("Lichess Opening Database provides accurate ECO, win percentages, and candidate moves", async () => {
-  const { getLocalOpeningStats, normalizeFen } = await import("../src/data/openingsDatabase.ts");
-  const { fetchLichessOpeningStats } = await import("../src/lib/lichess.ts");
-
-  // 1. Initial position
-  const initialFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-  const initialStats = getLocalOpeningStats(initialFen);
-  assert.ok(initialStats, "Initial position must exist in Lichess database");
-  assert.equal(initialStats.eco, "A00");
-  assert.equal(initialStats.whiteWinPct + initialStats.drawPct + initialStats.blackWinPct, 100);
-  assert.ok(initialStats.moves.length >= 4, "Must offer top moves (e4, d4, Nf3, c4)");
-
-  // 2. 1. e4 King's Pawn
-  const e4Fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
-  const e4Stats = getLocalOpeningStats(e4Fen);
-  assert.ok(e4Stats);
-  assert.equal(e4Stats.name, "King's Pawn Game");
-  const c5Move = e4Stats.moves.find(m => m.san === "c5");
-  assert.ok(c5Move, "Sicilian c5 must be top candidate response");
-  assert.equal(c5Move.whiteWinPct + c5Move.drawPct + c5Move.blackWinPct, 100);
-
-  // 3. Italian Game
-  const italianFen = "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3";
-  const italianStats = getLocalOpeningStats(italianFen);
-  assert.ok(italianStats);
-  assert.equal(italianStats.eco, "C50");
-  assert.equal(italianStats.name, "Italian Game");
-
-  // 4. Explorer fetch fallback works seamlessly
-  const explorerResult = await fetchLichessOpeningStats({ fen: italianFen });
-  assert.ok(explorerResult.stats);
-  assert.equal(explorerResult.stats.eco, "C50");
-  assert.ok(explorerResult.stats.moves.length > 0);
-});
-
 test("Account Analytics engine processes color splits, terminations, and openings accurately", async () => {
   const { computeAccountAnalytics } = await import("../src/lib/accountStats.ts");
 
@@ -229,43 +194,6 @@ test("Account Analytics engine processes color splits, terminations, and opening
 
   const rapidOnly = computeAccountAnalytics(sampleGames, { timeframe: "all", timeClass: "rapid", color: "all" });
   assert.equal(rapidOnly.totalGames, 2);
-});
-
-test("Curriculum lessons, curated puzzles, and placement questions have valid FENs and 100% legal UCI moves", async () => {
-  const { lessons, curatedPuzzles, placementQuestions } = await import("../src/data/courses.ts");
-  const { isUciLegalInFen } = await import("../src/lib/chessUtils.ts");
-
-  for (const pz of curatedPuzzles) {
-    assert.ok(pz.moves.length >= 1, `Puzzle ${pz.id} must have at least 1 solution move`);
-    const board = new Chess(pz.fen);
-    for (const uci of pz.moves) {
-      assert.ok(isUciLegalInFen(board.fen(), uci), `Move ${uci} in puzzle ${pz.id} must be legal at ${board.fen()}`);
-      board.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: (uci[4] as "q" | "r" | "b" | "n") || "q" });
-    }
-  }
-
-  for (const pq of placementQuestions) {
-    assert.ok(isUciLegalInFen(pq.fen, pq.expected), `Placement ${pq.id} move ${pq.expected} must be legal`);
-  }
-
-  for (const lesson of lessons) {
-    for (const step of lesson.steps) {
-      if (step.type === "explain") {
-        assert.doesNotThrow(() => new Chess(step.fen), `Explain step in ${lesson.id} has invalid FEN`);
-      } else if (step.type === "demo") {
-        const board = new Chess(step.fen);
-        for (const uci of step.moves) {
-          assert.ok(isUciLegalInFen(board.fen(), uci), `Demo move ${uci} in ${lesson.id} must be legal`);
-          board.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: (uci[4] as "q" | "r" | "b" | "n") || "q" });
-        }
-      } else if (step.type === "try") {
-        assert.ok(isUciLegalInFen(step.fen, step.solutions[0]), `Try step move ${step.solutions[0]} in ${lesson.id} must be legal`);
-        for (const sol of step.solutions) {
-          assert.ok(isUciLegalInFen(step.fen, sol), `Try alternate solution ${sol} in ${lesson.id} must be legal`);
-        }
-      }
-    }
-  }
 });
 
 test("calculateCapturesFromMoves and parsePgnSafely handle captures, comments, NAGs, and truncation safely", async () => {

@@ -2,22 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
 import {
   ArrowLeft,
-  ArrowLeftRight,
-  Award,
-  BookOpen,
   Check,
   SkipForward,
   X,
   CheckCircle2,
   ChevronRight,
-  HelpCircle,
   Lightbulb,
-  Play,
-  RotateCcw,
   Search,
   Sparkles,
   Swords,
-  Video
 } from "lucide-react";
 import {
   LESSON_CATEGORIES,
@@ -33,7 +26,6 @@ import { playCue, triggerHaptic } from "../lib/audio";
 import { parseUci, uciToSan } from "../lib/chessUtils";
 import { AppSettings } from "../lib/storage";
 import { BoardArrow, BoardHighlight, BoardHost } from "../components/BoardHost";
-import { CoachBubble } from "../components/CoachBubble";
 import { ArtTile, ListRow, PlayMark, PrimaryButton, ScreenTitle, SectionHeader } from "../components/ct";
 
 export type LearnSubRoute =
@@ -437,7 +429,6 @@ function LessonPlayer({
   const [lineProgress, setLineProgress] = useState(0);
   const [solvedStep, setSolvedStep] = useState(initState.solvedStep);
   const [coachText, setCoachText] = useState(step?.text ?? "");
-  const [coachMood, setCoachMood] = useState<"ready" | "thinking" | "kind" | "proud">("ready");
   const [coachTone, setCoachTone] = useState<"default" | "success" | "warning">("default");
   const [hintShown, setHintShown] = useState(false);
   const [mistakeSquare, setMistakeSquare] = useState<string | null>(null);
@@ -465,7 +456,6 @@ function LessonPlayer({
     setLineProgress(0);
     setSolvedStep(nextInit.solvedStep);
     setCoachText(targetStep?.text ?? "");
-    setCoachMood("ready");
     setCoachTone("default");
     setHintShown(false);
     setMistakeSquare(null);
@@ -489,7 +479,6 @@ function LessonPlayer({
       onAwardXp(15);
     }
     playCue("win", settings.soundEnabled);
-    setCoachMood("proud");
     setCoachTone("success");
     setCoachText("Lesson complete! Ready for the next challenge.");
   };
@@ -527,7 +516,6 @@ function LessonPlayer({
       triggerHaptic("wrong", settings.hapticsEnabled);
       setMistakeSquare(parsed.to);
       setTimeout(() => setMistakeSquare(null), 500);
-      setCoachMood("kind");
       setCoachTone("warning");
       const customFeedback = step.feedback?.[clean];
       setCoachText(
@@ -551,13 +539,11 @@ function LessonPlayer({
       const nextProgress = lineProgress + 1;
       if (nextProgress >= expectedLine.length) {
         setSolvedStep(true);
-        setCoachMood("proud");
         setCoachTone("success");
         setCoachText(step.ifRight ?? "Well played! You completed the sequence.");
         playCue("correct", settings.soundEnabled);
       } else {
         setLineProgress(nextProgress);
-        setCoachMood("thinking");
         setCoachTone("default");
         setCoachText("Good move — watch the reply…");
         const replyUci = expectedLine[nextProgress];
@@ -580,12 +566,10 @@ function LessonPlayer({
           setLineProgress(afterReplyIdx);
           if (afterReplyIdx >= expectedLine.length) {
             setSolvedStep(true);
-            setCoachMood("proud");
             setCoachTone("success");
             setCoachText(step.ifRight ?? "Well played! You completed the sequence.");
             playCue("correct", settings.soundEnabled);
           } else {
-            setCoachMood("ready");
             setCoachText("Your turn — keep the line going.");
           }
         }, 380);
@@ -595,7 +579,6 @@ function LessonPlayer({
 
     // Single move play or quiz step
     setSolvedStep(true);
-    setCoachMood("proud");
     setCoachTone("success");
     const rightText = step.feedback?.[clean] ?? step.ifRight ?? "Spot on!";
     setCoachText(rightText);

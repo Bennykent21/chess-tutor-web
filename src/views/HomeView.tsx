@@ -4,9 +4,7 @@ import {
   ArrowLeft,
   ChevronRight,
   Compass,
-  Cpu,
   Eye,
-  Flame,
   Pencil,
   Play,
   Plus,
@@ -47,7 +45,6 @@ import {
   localDateKey
 } from "../lib/storage";
 import { PlayBoardLaunch, TIME_CONTROLS, TimeControlOption } from "./PlayBoardView";
-import { CoachBubble } from "../components/CoachBubble";
 import { BoardHost } from "../components/BoardHost";
 import { FriendGameScreen, FriendSetup, FriendSetupPage } from "./FriendView";
 import {
@@ -96,7 +93,6 @@ export function HomeView({
   onOpenLesson,
   onOpenDailyPuzzle,
   onOpenMistakesReview,
-  onOpenHealthCheck,
   isDark,
   onSaveGame
 }: {
@@ -120,7 +116,6 @@ export function HomeView({
   onOpenLesson: (course: LessonCourse, lessonId: string) => void;
   onOpenDailyPuzzle: (puzzle: Puzzle) => void;
   onOpenMistakesReview: () => void;
-  onOpenHealthCheck: () => void;
   isDark: boolean;
   onSaveGame: (record: TutorGameRecord) => void;
 }) {

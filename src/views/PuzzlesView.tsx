@@ -1,17 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
 import {
-  AlertTriangle,
   ArrowLeft,
   Calendar,
   Check,
-  ChevronRight,
   Clock,
-  Cpu,
   Eye,
   MoreVertical,
-  Flame,
-  Grid,
   Heart,
   Layers,
   Lightbulb,
@@ -19,7 +14,6 @@ import {
   Play,
   RotateCcw,
   Sliders,
-  Sparkles,
   Trophy,
   Zap
 } from "lucide-react";
@@ -40,8 +34,8 @@ import {
   dailyPuzzleForDate,
   displayThemeName,
   levelTargetRating,
+  worldOfLevel,
   patternsForGoal,
-  playerLevelFromXp,
   puzzlePrompt,
   puzzlesForLevel,
   selectCustomPuzzles,
@@ -56,11 +50,9 @@ import {
   AppSettings,
   PuzzleStoreState,
   TutorGameMistake,
-  computeDayStreak,
   localDateKey
 } from "../lib/storage";
 import { BoardArrow, BoardHighlight, BoardHost } from "../components/BoardHost";
-import { CoachBubble } from "../components/CoachBubble";
 import {
   PrimaryButton,
   Tutor,
@@ -148,8 +140,6 @@ export function PuzzlesView({
   onReportIssue: (puzzleId: string, fen: string, note: string) => void;
   onOpenExplore: (fen: string, moves: string[]) => void;
 }) {
-  const streak = computeDayStreak(puzzleStore.activeDays);
-  const levelInfo = playerLevelFromXp(puzzleStore.totalXp);
   const dailyPuzzle = useMemo(() => dailyPuzzleForDate(puzzlePack, new Date()), [puzzlePack]);
   const todaySolvedDaily = useMemo(() => {
     if (!dailyPuzzle) return false;
@@ -356,7 +346,7 @@ export function PuzzlesView({
   }
 
   const mistakeItemsHome = buildMistakesItems();
-  const currentWorld = PUZZLE_WORLDS.find(w => currentPathLevel >= w.minLevel && currentPathLevel <= w.maxLevel) ?? PUZZLE_WORLDS[0];
+  const currentWorld = worldOfLevel(currentPathLevel);
   const currentRec = puzzleStore.levels[currentPathLevel];
   const passedCount = Object.values(puzzleStore.levels).filter(l => l.passed).length;
 
@@ -1134,13 +1124,6 @@ function PuzzlePlayer({
   }
 
   const isSolvedOrRevealed = session.status !== "solving";
-  const mood =
-    session.status === "solved"
-      ? "proud"
-      : session.mistakes > 0
-      ? "kind"
-      : "ready";
-
   const formatSec = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   const after = isSolvedOrRevealed;
   const coachText =

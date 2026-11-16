@@ -1,5 +1,5 @@
 import { Chess } from "chess.js";
-import { parseUci, toUci } from "../lib/chessUtils";
+import { parseUci } from "../lib/chessUtils";
 
 export interface OpeningLine {
   eco: string;
@@ -310,8 +310,4 @@ export async function loadOpeningTree(): Promise<OpeningTree> {
       .catch(() => new OpeningTree([]));
   }
   return cachedTreePromise;
-}
-
-export function movesToUciList(chess: Chess): string[] {
-  return chess.history({ verbose: true }).map(m => toUci(m));
 }

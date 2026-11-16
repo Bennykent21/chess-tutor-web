@@ -91,10 +91,6 @@ export function positionKey(chess: Chess): string {
   return `${board} ${turn} ${castling} ${effectiveEp}`;
 }
 
-export function chessFromKey(key: string): Chess {
-  return new Chess(`${key} 0 1`);
-}
-
 /** The position after [uci] from [fen], or null when the move is not legal. */
 export function playUci(fen: string, uci: string): Chess | null {
   try {

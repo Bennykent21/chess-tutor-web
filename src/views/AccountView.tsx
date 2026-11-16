@@ -3,25 +3,17 @@ import { Chess } from "chess.js";
 import {
   ArrowLeft,
   ArrowLeftRight,
-  Award,
-  BarChart3,
-  BookOpen,
-  CheckCircle2,
   ChevronRight,
   Cpu,
   Download,
   ExternalLink,
-  Flame,
-  History,
   Link2,
   RefreshCw,
   Search,
   Settings,
   Sparkles,
   Trash2,
-  Trophy,
   Upload,
-  UserCheck
 } from "lucide-react";
 import {
   GameReviewReport,
@@ -45,7 +37,6 @@ import {
   MASCOTS,
   PIECE_SETS,
   RATING_RANKS,
-  botAssetUrl,
   mascotAssetUrl,
   ratingRankOf
 } from "../domain/theme";
@@ -55,7 +46,7 @@ import {
   computeAccountAnalytics,
   importAccountGames
 } from "../lib/accountStats";
-import { parsePgnSafely, parseUci, toUci, uciToSan } from "../lib/chessUtils";
+import { parsePgnSafely, toUci, uciToSan } from "../lib/chessUtils";
 import { EngineHealthReport, analyseMultiPV, runEngineHealthCheck } from "../lib/engine";
 import {
   AppSettings,
