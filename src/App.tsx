@@ -556,6 +556,11 @@ export default function App() {
             games={allGamesForTrain}
             reviews={analysedMap}
             openingTree={openingTree}
+            courses={courses}
+            onOpenCourse={course => {
+              setActiveTab("learn");
+              setLearnRoute({ view: "course", course });
+            }}
             onOpenBattle={(openingName, line, side) => {
               setActiveTab("home");
               setHomeRoute({ view: "battle", presetOpeningName: openingName, presetLine: line, presetSide: side });
