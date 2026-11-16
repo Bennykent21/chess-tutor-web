@@ -107,7 +107,8 @@ function toAbsoluteUrl(url: string): string {
 function createWorker(): Worker {
   const absScriptUrl = toAbsoluteUrl(engineScriptUrl);
   const absWasmUrl = toAbsoluteUrl(engineWasmUrl);
-  const workerHash = `#${encodeURIComponent(absWasmUrl)},worker`;
+  // Only the wasm URL: in stockfish.js a ",worker" suffix marks its download helper, not the engine.
+  const workerHash = `#${encodeURIComponent(absWasmUrl)}`;
 
   try {
     return new Worker(`${absScriptUrl}${workerHash}`);
