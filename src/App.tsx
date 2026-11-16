@@ -553,9 +553,10 @@ export default function App() {
             effectiveRating={effectiveRating}
             games={allGamesForTrain}
             reviews={analysedMap}
-            onOpenBattle={openingName => {
+            openingTree={openingTree}
+            onOpenBattle={(openingName, line, side) => {
               setActiveTab("home");
-              setHomeRoute({ view: "battle", presetOpeningName: openingName });
+              setHomeRoute({ view: "battle", presetOpeningName: openingName, presetLine: line, presetSide: side });
             }}
           />
         ) : activeTab === "puzzles" ? (

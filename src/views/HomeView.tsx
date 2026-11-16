@@ -65,7 +65,7 @@ export type HomeSubRoute =
   | { view: "bots" }
   | { view: "bot-setup"; bot: BotProfile }
   | { view: "builder"; editing?: BotProfile }
-  | { view: "battle"; presetOpeningName?: string }
+  | { view: "battle"; presetOpeningName?: string; presetLine?: OpeningLine; presetSide?: "w" | "b" }
   | { view: "position" }
   | { view: "watch" }
   | { view: "explore" };
@@ -219,6 +219,8 @@ export function HomeView({
       <OpeningBattlePage
         openingTree={openingTree}
         presetOpeningName={route.presetOpeningName}
+        presetLine={route.presetLine}
+        presetSide={route.presetSide}
         effectiveRating={effectiveRating}
         onBack={() => setRoute({ view: "hub" })}
         onStart={(plan, tc) =>
@@ -851,21 +853,26 @@ function BotBuilderPage({
 function OpeningBattlePage({
   openingTree,
   presetOpeningName,
+  presetLine,
+  presetSide,
   onBack,
   onStart
 }: {
   openingTree: OpeningTree;
   presetOpeningName?: string;
+  /** A line of the player's own, played as is. */
+  presetLine?: OpeningLine;
+  presetSide?: "w" | "b";
   effectiveRating: number;
   onBack: () => void;
   onStart: (plan: ReturnType<typeof createBattlePlan>, tc: TimeControlOption) => void;
 }) {
-  const [query, setQuery] = useState(presetOpeningName ?? "");
+  const [query, setQuery] = useState(presetLine ? "" : presetOpeningName ?? "");
   const [selectedLine, setSelectedLine] = useState<OpeningLine | null>(() =>
-    presetOpeningName ? openingTree.presetLine(presetOpeningName) : openingTree.presetLine("Italian Game")
+    presetLine ?? (presetOpeningName ? openingTree.presetLine(presetOpeningName) : openingTree.presetLine("Italian Game"))
   );
   const [expandedFamily, setExpandedFamily] = useState<string | null>(null);
-  const [sideChoice, setSideChoice] = useState<"w" | "b" | "random">("w");
+  const [sideChoice, setSideChoice] = useState<"w" | "b" | "random">(presetSide ?? "w");
   const [mode, setMode] = useState<BattleMode>("play");
   const [exactReplies, setExactReplies] = useState(true);
 
